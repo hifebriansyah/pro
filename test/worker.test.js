@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 // what tools/deploy_worker.py fills in
-globalThis.__SKILLS__ = [{ name: "writing-md", description: "Write docs", triggers: ["catatan"], body: "SKILL BODY" }];
+globalThis.__SKILLS__ = [{ name: "writing-md", description: "Write docs", triggers: ["catatan"], body: "SKILL BODY" }, { name: "mockup-html", description: "Make mockups", triggers: ["mockup"], body: "MOCKUP BODY" }];
 const worker = (await import("../worker/pro.js")).default;
 
 const realFetch = globalThis.fetch;
@@ -66,6 +66,16 @@ test("worker: the bundled skill is preloaded by its trigger word, and a document
   assert.match(net.prompts[0], /Skill "writing-md" applies[\s\S]*SKILL BODY/);
   assert.deepEqual(events.find((e) => e.type === "document"), { type: "document", title: "Catatan", markdown: "# Catatan\nisi" });
   assert.equal(events.find((e) => e.type === "chunk").text, "Siap!");
+});
+
+test("worker: a mockup skill is preloaded by its trigger word, and a mockup event is sent", async () => {
+  const net = fakeNet(['Ini mockup-nya.\n<mockup title="Beranda"><html><body><h1>Toko</h1></body></html></mockup>']);
+  const { events } = await call({ question: "buatkan mockup beranda", message: "buatkan mockup beranda toko" });
+  assert.match(net.prompts[0], /Skill "mockup-html" applies[\s\S]*MOCKUP BODY/);
+  assert.doesNotMatch(net.prompts[0], /SKILL BODY/); // the other skill's words are not in the message
+  assert.deepEqual(events.find((e) => e.type === "mockup"), { type: "mockup", title: "Beranda", html: "<html><body><h1>Toko</h1></body></html>" });
+  assert.equal(events.find((e) => e.type === "chunk").text, "Ini mockup-nya.");
+  assert.equal(net.logs.find((l) => l.kind === "agent").mockups, 1);
 });
 
 test("worker: refuses other origins, preflight follows the origin, unknown paths, bad bodies", async () => {

@@ -102,6 +102,23 @@
   .bubble.in { align-self: flex-start; background: var(--in); border-top-left-radius: 0; margin-top: 6px; }
   .bubble.cont { margin-top: 3px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
   .bubble .text { white-space: pre-wrap; }
+  .bubble .text code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(127, 127, 127, .2); padding: .08em .35em; border-radius: 4px; }
+  .bubble .text.rich { white-space: normal; min-width: 0; }
+  .bubble .text.rich > :first-child { margin-top: 0; }
+  .bubble .text.rich > :last-child { margin-bottom: 0; }
+  .bubble .text.rich p { margin: .3em 0; }
+  .bubble .text.rich h1, .bubble .text.rich h2, .bubble .text.rich h3, .bubble .text.rich h4, .bubble .text.rich h5, .bubble .text.rich h6 { font-size: 1.05em; line-height: 1.3; margin: .55em 0 .25em; }
+  .bubble .text.rich h1 { font-size: 1.15em; }
+  .bubble .text.rich ul, .bubble .text.rich ol { margin: .3em 0; padding-left: 1.4em; }
+  .bubble .text.rich li { margin: .1em 0; }
+  .bubble .text.rich pre { background: rgba(127, 127, 127, .18); padding: 8px 10px; border-radius: 6px; overflow-x: auto; max-width: 100%; margin: .4em 0; font-size: .9em; scrollbar-width: thin; }
+  .bubble .text.rich pre code { background: none; padding: 0; font-size: 1em; }
+  .bubble .text.rich blockquote { margin: .4em 0; padding: 0 .8em; border-left: 3px solid var(--accent); color: var(--muted); }
+  .bubble .text.rich hr { border: 0; border-top: 1px solid rgba(127, 127, 127, .4); margin: .6em 0; }
+  .bubble .text.rich .table-wrap { overflow-x: auto; margin: .4em 0; max-width: 100%; scrollbar-width: thin; }
+  .bubble .text.rich table { border-collapse: collapse; font-size: .92em; }
+  .bubble .text.rich th, .bubble .text.rich td { border: 1px solid rgba(127, 127, 127, .4); padding: 3px 8px; text-align: left; vertical-align: top; }
+  .bubble .text.rich th { font-weight: 600; }
   .bubble .text a.ext { color: var(--link); text-decoration: underline; }
   .bubble.pic { padding: 3px; }
   .bubble.pic img { display: block; max-width: 100%; max-height: 360px; border-radius: 6px; }
@@ -158,6 +175,16 @@
   .bubble.card svg { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .bubble.card b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bubble.card span { font-size: 12px; color: var(--muted); }
+  .doc.wide { width: min(64%, 960px); max-width: none; }
+  .doc-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+  .seg { display: inline-flex; background: var(--panel-2); border-radius: 8px; padding: 2px; gap: 2px; }
+  .seg button { padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  .seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px var(--shadow); }
+  .seg svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .mock-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .mock-stage { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 14px; background: var(--panel-2); overflow: auto; }
+  .mock-stage iframe { border: 0; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px var(--shadow); max-width: 100%; width: 100%; height: 100%; min-height: 420px; }
+  .mock-code { flex: 1; overflow: auto; margin: 0; padding: 16px; font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; background: var(--panel); color: var(--text); tab-size: 2; scrollbar-width: thin; }
   @media (max-width: 1100px) { .app.doc-open .side { display: none; } }
   @media (max-width: 760px) {
     .doc { position: fixed; inset: 0; z-index: 3; width: 100%; max-width: none; border: 0; }
@@ -199,12 +226,24 @@
   </main>
   <aside class="doc hidden" id="doc" aria-label="Dokumen">
     <header>
-      <div class="title"><b id="doc-title"></b><span>Markdown</span></div>
+      <div class="title"><b id="doc-title"></b><span id="doc-kind">Markdown</span></div>
       <button class="icon-btn" id="doc-copy" title="Salin Markdown" aria-label="Salin Markdown"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
       <button class="icon-btn" id="doc-dl" title="Unduh .md" aria-label="Unduh .md"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
       <button class="icon-btn" id="doc-close" title="Tutup" aria-label="Tutup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </header>
+    <div class="doc-tools hidden" id="doc-tools">
+      <div class="seg" id="mock-tabs">
+        <button type="button" data-tab="preview" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+        <button type="button" data-tab="code"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Kode</button>
+      </div>
+      <div class="seg" id="mock-devices">
+        <button type="button" data-w="390" title="Ponsel (390 px)" aria-label="Ponsel"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></button>
+        <button type="button" data-w="768" title="Tablet (768 px)" aria-label="Tablet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg></button>
+        <button type="button" data-w="0" class="on" title="Lebar penuh" aria-label="Desktop"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg></button>
+      </div>
+    </div>
     <article class="md" id="doc-body"></article>
+    <div class="mock-body hidden" id="mock-body"></div>
   </aside>
 </div>
 
@@ -401,6 +440,7 @@ function renderMarkdown(md) {
         while (stack.length && indent < stack[stack.length - 1].indent) stack.pop();
         if (!stack.length || indent > stack[stack.length - 1].indent) {
           const list = el(/^\d/.test(it[2]) ? "ol" : "ul");
+          if (list.tagName === "OL" && parseInt(it[2], 10) > 1) list.start = parseInt(it[2], 10);
           (stack.length ? stack[stack.length - 1].li : root).append(list);
           stack.push({ indent, list, li: null });
         }
@@ -428,11 +468,48 @@ const ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11"
 // Lucide check-check (read ticks)
 const ICON_CHECK_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>';
 
+// <md-bubbles>
+// A bubble shows Markdown like the document panel does: `code`, fenced blocks, lists, headings, quotes and tables. Plain text with only
+// inline marks (bold, italic, `code`, links) keeps its line breaks; a message with a block in it is drawn as blocks (renderMarkdown).
+const BLOCK_START = /^(?:\s*(?:```|~~~)|#{1,6}\s|\s*(?:[-*+]|\d+[.)])\s|\s*>|\s*([-*_])(?:\s*\1){2,}\s*$)/m;
+const TABLE_START = /^.*\|.*\n\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$/m;
+const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s/;
+const hasBlocks = (text) => BLOCK_START.test(text) || TABLE_START.test(text);
+
+// A message becomes one bubble per paragraph, like separate WhatsApp messages. Blank lines inside a code fence do not split it, and a
+// list with blank lines between its items stays together.
+function splitBlocks(text) {
+  const parts = [];
+  let cur = [], fence = null;
+  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
+    const f = /^\s*(```|~~~)/.exec(line);
+    if (f) fence = !fence ? f[1] : f[1] === fence ? null : fence;
+    if (!fence && !f && !line.trim()) {
+      if (cur.length) parts.push(cur.join("\n"));
+      cur = [];
+    } else cur.push(line);
+  }
+  if (cur.length) parts.push(cur.join("\n"));
+  return parts.reduce((out, part) => {
+    const prev = out[out.length - 1];
+    if (prev !== undefined && LIST_ITEM.test(part) && LIST_ITEM.test(prev)) out[out.length - 1] = prev + "\n" + part;
+    else out.push(part);
+    return out;
+  }, []).map((p) => p.replace(/^\n+|\s+$/g, "")).filter(Boolean);
+}
+// </md-bubbles>
+
+function fillBody(body, text) {
+  body.replaceChildren();
+  if (hasBlocks(text)) { body.classList.add("rich"); body.append(renderMarkdown(text)); }
+  else mdInline(body, text);
+}
+
 // one chat bubble: `text` is the message or one paragraph of it; only the last bubble of a message carries the time
 function bubble(m, text, { first = true, last = true } = {}) {
   const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : "") + (first ? "" : " cont"));
   const body = el("span", "text");
-  fmt(body, text);
+  fillBody(body, text);
   b.append(body);
   if (m.pending && !text) {
     body.replaceChildren();
@@ -449,7 +526,7 @@ function bubble(m, text, { first = true, last = true } = {}) {
 
 // a message with blank lines between paragraphs shows as one bubble per paragraph, like separate WhatsApp messages
 function bubbles(m) {
-  const parts = m.text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  const parts = splitBlocks(m.text);
   if (parts.length < 2) return [bubble(m, m.text.trim())];
   return parts.map((p, i) => bubble(m, p, { first: i === 0, last: i === parts.length - 1 }));
 }
@@ -463,24 +540,78 @@ function picture(i) {
   return b;
 }
 
-// the document panel on the right shows one Markdown document the AI wrote; a card in the chat reopens it
-let docView = null;
+// <mockup-frame>
+// The AI's HTML never runs in this page: it is drawn in an iframe with an empty sandbox (no scripts, no forms, no same-origin) and a
+// content security policy that allows inline styles and data: pictures only. These replacements are a second line: script, frames, meta
+// refresh (the one thing a sandbox does not stop: it would send the frame to another site), event handlers and <base> are removed.
+const MOCKUP_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'";
+function frameHtml(html) {
+  const safe = html
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<script\b[^>]*>/gi, "")
+    .replace(/<\/?(?:iframe|frame|frameset|object|embed|applet|base|link)\b[^>]*>/gi, "")
+    .replace(/<meta\b[^>]*http-equiv[^>]*>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${MOCKUP_CSP}"><base target="_blank">`;
+  const doctype = /^\s*<!doctype/i.test(safe) ? "" : "<!doctype html>";
+  if (/<head[\s>]/i.test(safe)) return doctype + safe.replace(/<head[^>]*>/i, (m) => m + head);
+  if (/<html[\s>]/i.test(safe)) return doctype + safe.replace(/<html[^>]*>/i, (m) => m + "<head>" + head + "</head>");
+  return `<!doctype html><html><head>${head}<meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${safe}</body></html>`;
+}
+// </mockup-frame>
+
+// the panel on the right shows one thing the AI made: a Markdown document, or an HTML mockup (Preview / Code, phone / tablet / desktop
+// width); a card in the chat reopens it
+let docView = null; // { kind: "doc", title, markdown } or { kind: "mockup", title, html }
+let mockTab = "preview", mockWidth = 0;
 const ICON_FILE_TEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
+const ICON_LAYOUT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg>';
+const slug = (t, fallback) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback;
+
+function renderMock() {
+  const body = $("mock-body");
+  body.replaceChildren();
+  if (mockTab === "code") { body.append(el("pre", "mock-code", docView.html)); return; }
+  const frame = el("iframe");
+  frame.setAttribute("sandbox", ""); // nothing allowed
+  frame.referrerPolicy = "no-referrer";
+  frame.title = docView.title;
+  frame.srcdoc = frameHtml(docView.html);
+  if (mockWidth) frame.style.width = mockWidth + "px";
+  const stage = el("div", "mock-stage");
+  stage.append(frame);
+  body.append(stage);
+}
+function paintTools() {
+  for (const b of $("mock-tabs").children) b.classList.toggle("on", b.dataset.tab === mockTab);
+  for (const b of $("mock-devices").children) b.classList.toggle("on", Number(b.dataset.w) === mockWidth);
+  $("mock-devices").classList.toggle("hidden", mockTab === "code");
+}
 function renderDoc() {
   $("doc").classList.toggle("hidden", !docView);
   $("app").classList.toggle("doc-open", !!docView);
   if (!docView) return;
+  const mock = docView.kind === "mockup";
+  $("doc").classList.toggle("wide", mock);
+  $("doc-tools").classList.toggle("hidden", !mock);
+  $("doc-body").classList.toggle("hidden", mock);
+  $("mock-body").classList.toggle("hidden", !mock);
   $("doc-title").textContent = docView.title;
+  $("doc-kind").textContent = mock ? "Mockup HTML" : "Markdown";
+  $("doc-copy").title = mock ? "Salin HTML" : "Salin Markdown";
+  $("doc-dl").title = mock ? "Unduh .html" : "Unduh .md";
+  if (mock) { paintTools(); renderMock(); return; }
   $("doc-body").replaceChildren(renderMarkdown(docView.markdown));
   $("doc-body").scrollTop = 0;
 }
-const openDoc = (d) => { docView = d; renderDoc(); };
-const closeDoc = () => { docView = null; renderDoc(); };
+const openDoc = (d) => { docView = d; if (d.kind === "mockup") { mockTab = "preview"; mockWidth = 0; } renderDoc(); };
+const closeDoc = () => { docView = null; $("mock-body").replaceChildren(); renderDoc(); }; // an emptied panel also stops a running preview
 function docCard(d) {
+  const mock = d.kind === "mockup";
   const b = el("button", "bubble in cont card");
   b.type = "button";
-  b.insertAdjacentHTML("afterbegin", ICON_FILE_TEXT); // constant markup
-  const t = el("div"); t.append(el("b", null, d.title), el("span", null, "Buka dokumen"));
+  b.insertAdjacentHTML("afterbegin", mock ? ICON_LAYOUT : ICON_FILE_TEXT); // constant markup
+  const t = el("div"); t.append(el("b", null, d.title), el("span", null, mock ? "Buka mockup" : "Buka dokumen"));
   b.append(t);
   b.onclick = () => openDoc(d);
   return b;
@@ -506,7 +637,8 @@ function renderChat() {
     if (d !== day) { day = d; box.append(el("div", "day", d)); }
     box.append(...bubbles(m));
     for (const i of m.images ?? []) box.append(picture(i));
-    for (const d of m.docs ?? []) box.append(docCard(d));
+    for (const d of m.docs ?? []) box.append(docCard({ kind: "doc", ...d }));
+    for (const k of m.mockups ?? []) box.append(docCard({ kind: "mockup", ...k }));
   }
   scrollDown();
   $("send").disabled = busy.has(c.id);
@@ -579,7 +711,13 @@ async function sendMessage(text) {
         else if (ev.type === "document" && typeof ev.markdown === "string") {
           const d = { title: String(ev.title || "Dokumen").slice(0, 120), markdown: ev.markdown.slice(0, 100000) };
           (reply.docs ??= []).push(d);
-          if (state.current === c.id) openDoc(d); // show it on the right as soon as it arrives
+          if (state.current === c.id) openDoc({ kind: "doc", ...d }); // show it on the right as soon as it arrives
+          update();
+        }
+        else if (ev.type === "mockup" && typeof ev.html === "string") {
+          const k = { title: String(ev.title || "Mockup").slice(0, 120), html: ev.html.slice(0, 120000) };
+          (reply.mockups ??= []).push(k);
+          if (state.current === c.id) openDoc({ kind: "mockup", ...k }); // show it on the right as soon as it arrives
           update();
         }
         else if (ev.type === "tool") { reply.status = ev.phase === "start" ? toolStatus(ev) : "menulis jawaban…"; update(); }
@@ -602,15 +740,19 @@ async function sendMessage(text) {
 
 $("doc-close").onclick = closeDoc;
 $("doc-copy").onclick = async () => {
-  try { await navigator.clipboard.writeText(docView.markdown); $("doc-copy").title = "Tersalin ✓"; setTimeout(() => ($("doc-copy").title = "Salin Markdown"), 1500); } catch {}
+  const text = docView.kind === "mockup" ? docView.html : docView.markdown, label = $("doc-copy").title;
+  try { await navigator.clipboard.writeText(text); $("doc-copy").title = "Tersalin ✓"; setTimeout(() => ($("doc-copy").title = label), 1500); } catch {}
 };
 $("doc-dl").onclick = () => {
+  const mock = docView.kind === "mockup";
   const a = el("a");
-  a.href = URL.createObjectURL(new Blob([docView.markdown], { type: "text/markdown" }));
-  a.download = (docView.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dokumen") + ".md";
+  a.href = URL.createObjectURL(new Blob([mock ? docView.html : docView.markdown], { type: mock ? "text/html" : "text/markdown" }));
+  a.download = slug(docView.title, mock ? "mockup" : "dokumen") + (mock ? ".html" : ".md");
   a.click();
   URL.revokeObjectURL(a.href);
 };
+$("mock-tabs").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockTab = b.dataset.tab; paintTools(); renderMock(); } };
+$("mock-devices").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockWidth = Number(b.dataset.w); paintTools(); renderMock(); } };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
 const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
 $("web").onclick = () => { webOn = !webOn; try { localStorage.setItem("islam-chat:web", webOn ? "1" : "0"); } catch {} paintWeb(); };

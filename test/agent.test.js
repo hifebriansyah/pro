@@ -191,3 +191,40 @@ test("webSearch: DuckDuckGo via POST, then GET when POST is refused, then Wikipe
   out = await withFetch(async (u) => (String(u).includes("brave") ? new Response("quota", { status: 429 }) : new Response(ddgPage)), () => webSearch({ query: "x" }, { env: { BRAVE_API_KEY: "k" } }));
   assert.equal(out[0].via, "duckduckgo");
 });
+
+import { extractMockups } from "../src/agent.js";
+
+test("extractMockups: title attr, <title> fallback, code fence inside the tag, an unclosed tag, no mockup", () => {
+  const html = '<!doctype html><html><head><title>Login</title><style>b{}</style></head><body><b>Halo</b></body></html>';
+  assert.deepEqual(extractMockups(`Ini mockup-nya.\n\n<mockup title="Halaman Login">\n${html}\n</mockup>\n\nCek kontrasnya.`), { text: "Ini mockup-nya.\n\nCek kontrasnya.", mockups: [{ title: "Halaman Login", html }] });
+  assert.equal(extractMockups(`<mockup>${html}</mockup>`).mockups[0].title, "Login"); // from <title>
+  assert.equal(extractMockups(`<mockup title="x">\n\`\`\`html\n${html}\n\`\`\`\n</mockup>`).mockups[0].html, html); // fence taken off
+  assert.equal(extractMockups('<mockup title="x"><html><body><p>terpotong').mockups[0].html, "<html><body><p>terpotong"); // cut off: takes the rest
+  assert.deepEqual(extractMockups("halo"), { text: "halo", mockups: [] });
+  assert.equal(extractMockups(`<mockup title="x">${"a".repeat(200_000)}</mockup>`).mockups[0].html.length, 120_000); // capped
+});
+
+test("agentChat: a mockup and a document in one reply are both emitted, and the chat text stays clean", async () => {
+  const mocks = [], docs = [], chunks = [];
+  const reply = 'Ini versinya.\n<mockup title="Beranda"><html><body><h1>Toko</h1></body></html></mockup>\n<document title="Catatan">\n# Catatan\nisi\n</document>';
+  const chatFn = async () => ({ text: reply, references: [] });
+  const res = await agentChat("buatkan mockup", { chatFn, tools: {}, onMockup: (m) => mocks.push(m), onDocument: (d) => docs.push(d), onChunk: (t) => chunks.push(t) });
+  assert.deepEqual(mocks, [{ title: "Beranda", html: "<html><body><h1>Toko</h1></body></html>" }]);
+  assert.deepEqual(docs, [{ title: "Catatan", markdown: "# Catatan\nisi" }]);
+  assert.deepEqual(chunks, ["Ini versinya."]);
+  assert.equal(res.mockups.length, 1);
+});
+
+test("agentChat: a reply that is only a mockup still gets a chat line", async () => {
+  const chunks = [];
+  await agentChat("x", { chatFn: async () => ({ text: '<mockup title="A"><p>hi</p></mockup>', references: [] }), tools: {}, onChunk: (t) => chunks.push(t) });
+  assert.deepEqual(chunks, ["Ini mockup-nya, ada di panel kanan."]);
+});
+
+test("the repo ships a mockup-html skill whose trigger words do not overlap writing-md's", () => {
+  const skills = loadSkills();
+  const k = skills.get("mockup-html");
+  assert.ok(k && k.description && k.body.includes("<mockup"));
+  const w = skills.get("writing-md");
+  assert.deepEqual(k.triggers.filter((t) => w.triggers.includes(t)), []); // one message should not preload both
+});

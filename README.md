@@ -21,10 +21,20 @@ The list is `AGENTS` in `index.html` (software house first, then social media). 
 1. The page sends the question, the persona and the user's latest message to the Worker (`POST /agent`, streamed as events).
 2. `src/agent.js` runs a text loop, because islam-gpt.org has no tool calling: the model may answer `TOOL: {"name":"web_search","args":{...}}`, we run the tool (`src/tools.js`: `web_search`, `fetch_url`, `show_image`) and ask again with the result inside (max 3 rounds). The persona is repeated after every tool result so it does not drift.
 3. A **skill** (`skills/<name>/SKILL.md`, the Agent Skills format) can be preloaded when the user's message contains one of its trigger words, or loaded by the model with `load_skill`. `writing-md` makes the professional write a deliverable (PRD, test plan, content calendar, code) as a Markdown document inside `<document title="...">`; the page shows it in the panel on the right (copy, download .md, close) with a card in the chat to reopen it.
+4. Chat bubbles render Markdown like the document panel: `inline code`, fenced code blocks, lists, headings, quotes and tables (plain text with only inline marks keeps its line breaks). A message becomes one bubble per paragraph, except that blank lines inside a code fence do not split it and a list stays together.
+
+### Mockups
+
+`mockup-html` makes the professional write a screen as one self-contained HTML file inside `<mockup title="...">`. Kirana (UI / UX) does it on her own initiative; Raka, Bima, Laras and Salsa do a rough one when asked (their personas say so and point to Kirana for a serious design job). The page shows it in the same right-hand panel with **Preview / Code** tabs and **phone / tablet / desktop** widths, copy and download `.html`, and a card in the chat to reopen it.
+
+- **The AI's HTML never runs in the page.** The preview is an iframe with an empty `sandbox` (no scripts, no forms, no same-origin) and a content security policy that allows inline styles and `data:` pictures only (`frameHtml` in `index.html`). As a second line, script, frames, `<link>`, `<base>`, `meta refresh` and event handlers are removed. Tests check this, including a hostile page.
+- It is a static picture of a screen. The skill asks for under about 3,500 characters: islam-gpt cuts answers off at about 5,000 to 5,500 characters, and a cut-off mockup is broken. Longer or richer designs, and iterating ("make the button bigger", which needs the last mockup sent along with the next question), are not done yet. An idea for later: the page injects a small design-system stylesheet (`.btn`, `.card`, ...) so the model only writes short HTML.
+
 
 ### What the islam-gpt engine can and cannot do (tested)
 
 - It follows the personas well: a PRD, a QA flow review, a content calendar and a code function all came back in the right voice, in the user's language, with assumptions stated, and as documents when asked.
+- A real mockup request (Kirana, a coffee shop home page) came back as a complete, believable page in about 30 seconds once the skill asked for a size budget; without it the HTML was cut off mid-tag.
 - QA can read a public page: `fetch_url` returned the page text and Sinta reported it and said what she could not see.
 - **It is slow**: about 25 to 35 seconds per answer, 45 seconds or more when a tool runs. The page shows a status line while it works.
 - It is an Islamic Q&A service underneath, so it is not tuned for these jobs: expect plain, generic quality, and check numbers, code and claims yourself. The personas tell the professionals not to invent facts.

@@ -40,18 +40,37 @@ export function extractDocuments(reply) {
   return { text: text.replace(/\n{3,}/g, "\n\n").trim(), documents };
 }
 
+const MOCKUP_CHARS = 120_000;
+/** The model sometimes wraps the HTML in a ```html fence inside the tag: take the fence off. */
+const unfence = (html) => html.trim().replace(/^```(?:html)?[ \t]*\n?/i, "").replace(/\n?```[ \t]*$/, "").trim();
+
+/**
+ * Pull <mockup title="..."> ... </mockup> blocks (the mockup-html skill) out of a reply: { text, mockups: [{title, html}] }.
+ * A tag that is never closed (the answer was cut off) takes the rest of the reply; the browser repairs unclosed HTML.
+ */
+export function extractMockups(reply) {
+  const mockups = [];
+  const text = reply.replace(/<mockup(?:\s+title="([^"]*)")?\s*>([\s\S]*?)(?:<\/mockup>|$)/g, (_, title, body) => {
+    const html = unfence(body).slice(0, MOCKUP_CHARS);
+    if (html) mockups.push({ title: (title ?? /<title>([^<]*)<\/title>/i.exec(html)?.[1] ?? "Mockup").trim().slice(0, 120), html });
+    return "";
+  });
+  return { text: text.replace(/\n{3,}/g, "\n\n").trim(), mockups };
+}
+
 /**
  * Ask with web tools. Calls onChunk once, with the final answer (replies are held back until we know they are not tool calls).
  * Options: persona (who the model must stay as; repeated after every tool result so it does not drift), tools,
  * skills (a Map: loadSkills() from skills-fs.js on Node, skillsFromList() on Workers; default none), env (settings handed to the tools, e.g. BRAVE_API_KEY),
  * timeZone (for "today"; Workers run in UTC, so the Worker sets Asia/Jakarta), message (the user's latest text: skills whose trigger words it contains are preloaded), chatFn (for tests), onToolStart({name,args}) before a tool runs,
- * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document in the answer, plus the islam.js options.
- * Resolves to { text, references, images, documents, steps }.
+ * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document and onMockup({title,html}) for each mockup in the answer, plus the islam.js options.
+ * Resolves to { text, references, images, documents, mockups, steps }.
  */
-export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
+export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, onMockup, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
   if (skills.size && !tools.load_skill) tools = { ...tools, load_skill: skillTool(skills) };
   const images = [];
   const documents = [];
+  const mockups = [];
   const exchanges = []; // what the tools returned so far, replayed on every round
   const preloaded = matchingSkills(skills, message);
   const preload = preloaded.map((k) => `Skill "${k.name}" applies to this request, follow it:\n${k.body}\n\n`).join("");
@@ -66,12 +85,14 @@ export async function agentChat(question, { onChunk, onTool, onToolStart, onDocu
     const res = await chatFn(base + exchanges.join("") + tail, { ...opts });
     const call = step < maxSteps ? parseToolCall(res.text) : null;
     if (!call) {
-      const found = extractDocuments(res.text);
+      const withoutMockups = extractMockups(res.text); // first: the HTML inside must not be read as anything else
+      for (const m of withoutMockups.mockups) { mockups.push(m); onMockup?.(m); }
+      const found = extractDocuments(withoutMockups.text);
       for (const d of found.documents) { documents.push(d); onDocument?.(d); }
-      // a reply that is only a document still needs a chat line
-      const text = stripToolLines(found.text) || (documents.length ? "Ini dokumennya, ada di panel kanan." : "");
+      // a reply that is only a document or a mockup still needs a chat line
+      const text = stripToolLines(found.text) || (mockups.length ? "Ini mockup-nya, ada di panel kanan." : documents.length ? "Ini dokumennya, ada di panel kanan." : "");
       if (text) onChunk?.(text);
-      return { ...res, text, images, documents, steps: step };
+      return { ...res, text, images, documents, mockups, steps: step };
     }
     onToolStart?.(call);
     let out;

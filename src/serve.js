@@ -1,6 +1,6 @@
 // One /agent request, shared by bin/proxy.js (Node) and worker/pro.js (Cloudflare Worker): check the body, run the agent loop and
 // report every step as an event, in the islam-gpt SSE shape the page already reads:
-//   {type:"tool",phase:"start"|"end",name,args,error?}  {type:"image",...}  {type:"document",title,markdown}  {type:"chunk",text}
+//   {type:"tool",phase:"start"|"end",name,args,error?}  {type:"image",...}  {type:"document",title,markdown}  {type:"mockup",title,html}  {type:"chunk",text}
 //   {type:"references",data}  {type:"error",message}  {type:"done"}
 import { agentChat } from "./agent.js";
 
@@ -26,14 +26,15 @@ const brief = (args) => String(args?.query ?? args?.url ?? args?.name ?? "").sli
 /**
  * Run the agent for one request, calling send(event) as it goes. Always ends with {type:"done"}.
  * Options: send, signal, env (settings for the tools), skills, timeZone, chatFn (tests).
- * Resolves to a summary for the log: { tools: [{name, arg, error?}], steps, documents, images, chars, error?, aborted? }.
+ * Resolves to a summary for the log: { tools: [{name, arg, error?}], steps, documents, mockups, images, chars, error?, aborted? }.
  */
 export async function runAgent(body, { send, signal, env, skills, timeZone, chatFn } = {}) {
-  const summary = { tools: [], steps: 0, documents: 0, images: 0, chars: 0 };
+  const summary = { tools: [], steps: 0, documents: 0, mockups: 0, images: 0, chars: 0 };
   try {
     const res = await agentChat(body.question, {
       deviceId: body.deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn,
       onDocument: (d) => { summary.documents++; send({ type: "document", ...d }); },
+      onMockup: (m) => { summary.mockups++; send({ type: "mockup", ...m }); },
       onToolStart: ({ name, args }) => send({ type: "tool", phase: "start", name, args }),
       onChunk: (text) => { summary.chars += text.length; send({ type: "chunk", text }); },
       onTool: ({ name, args, result, error, image }) => {
