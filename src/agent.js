@@ -26,20 +26,49 @@ export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {
   return `Today is ${today(timeZone)} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
 }
 
-/** The first `TOOL: {...}` line of a reply as {name, args}, or null when the reply is a normal answer. */
+/** The `{...}` object that starts at text[i] (braces balanced, strings respected), as a string, or null when it never closes. */
+function balancedObject(text, i) {
+  let depth = 0, inStr = false;
+  for (let j = i; j < text.length; j++) {
+    const c = text[j];
+    if (inStr) { if (c === "\\") j++; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return text.slice(i, j + 1);
+  }
+  return null;
+}
+
+/** Where a tool call sits in a reply: {start, end, json}. On a line of its own (the prefix "TOOL:" is optional), or, when a chatty model
+ *  writes "Saya akan mulai membuat mockup. TOOL: {...}", after the words on the same line. */
+function findToolCall(text) {
+  const line = /^[ \t]*(?:TOOL:[ \t]*)?(\{.*\})[ \t]*$/m.exec(text);
+  if (line) return { start: line.index, end: line.index + line[0].length, json: line[1] };
+  const inline = /TOOL:[ \t]*(?=\{)/.exec(text);
+  if (!inline) return null;
+  const at = inline.index + inline[0].length;
+  const json = balancedObject(text, at);
+  return json ? { start: inline.index, end: at + json.length, json } : null;
+}
+
+/** The first tool call of a reply as {name, args}, or null when the reply is a normal answer. */
 export function parseToolCall(text) {
-  const m = /^\s*(?:TOOL:\s*)?(\{.*\})\s*$/m.exec(text); // the model sometimes drops the "TOOL:" prefix
-  if (!m) return null;
+  const found = findToolCall(text);
+  if (!found) return null;
   try {
-    const { name, args } = JSON.parse(m[1]);
+    const { name, args } = JSON.parse(found.json);
     return typeof name === "string" ? { name, args: args ?? {} } : null;
   } catch {
     return null;
   }
 }
 
-/** Drop any tool-call lines from a reply that is shown to the user. */
-export const stripToolLines = (text) => text.replace(/^[ \t]*(?:TOOL:[ \t]*)?\{"name".*$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+/** Drop any tool call from a reply that is shown to the user (whole lines, or the call at the end of a sentence). */
+export function stripToolLines(text) {
+  let out = text.replace(/^[ \t]*(?:TOOL:[ \t]*)?\{"name".*$/gm, "");
+  for (let found; (found = findToolCall(out)) && /^\{\s*"name"/.test(found.json); ) out = out.slice(0, found.start) + out.slice(found.end);
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
 
 /** Pull <document title="..."> ... </document> blocks (the writing-md skill) out of a reply: { text, documents: [{title, markdown}] }. */
 export function extractDocuments(reply) {
@@ -129,7 +158,8 @@ export async function agentChat(question, { onChunk, onTool, onToolStart, onDocu
     // The reply may be a tool call with chatter around it ("Sebentar ya...\nTOOL: {...}"), so hold the whole
     // reply and show it only once we know it is the final answer.
     let res = await chatFn(base + exchanges.join("") + tail, { ...opts });
-    const call = step < maxSteps ? parseToolCall(res.text) : null;
+    let call = step < maxSteps ? parseToolCall(res.text) : null;
+    if (call && !tools[call.name] && skills.has(call.name)) call = { name: "load_skill", args: { name: call.name } }; // the model called the skill by its name
     if (!call) res = await finishReply(res, (message || question).slice(-1500), chatFn, opts, { onToolStart, onTool }); // a cut-off answer is carried on
     if (!call) {
       const withoutMockups = extractMockups(res.text); // first: the HTML inside must not be read as anything else

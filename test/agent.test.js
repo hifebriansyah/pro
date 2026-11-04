@@ -274,3 +274,23 @@ test("matchingSkills: a message with no trigger costs almost no CPU on the first
   const ms = Number(execFileSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" }));
   assert.ok(ms < 8, `the first matchingSkills call took ${ms.toFixed(1)} ms of CPU (it was 18 ms when it compiled a regex per trigger)`);
 });
+
+test("parseToolCall: a call after words on the same line is found, and stripped from what the user sees", async () => {
+  const { parseToolCall, stripToolLines } = await import("../src/agent.js");
+  const reply = 'Saya akan mulai membuat mockup tersebut. TOOL: {"name":"mockup-html","args":{"title":"Jam {dunia}","features":["a","b"]}}';
+  assert.deepEqual(parseToolCall(reply), { name: "mockup-html", args: { title: "Jam {dunia}", features: ["a", "b"] } });
+  assert.equal(stripToolLines(reply), "Saya akan mulai membuat mockup tersebut.");
+  assert.equal(parseToolCall("Tidak ada alat di sini { kurung }"), null);
+  assert.deepEqual(parseToolCall('TOOL: {"name":"search","args":{"query":"x"}}'), { name: "search", args: { query: "x" } });
+});
+
+test("agentChat: a call that names a skill is treated as load_skill, and the answer after it is shown", async () => {
+  const { agentChat } = await import("../src/agent.js");
+  const skills = new Map([["mockup-html", { name: "mockup-html", description: "d", triggers: [], body: "SKILL BODY" }]]);
+  const replies = ['Saya akan mulai. TOOL: {"name":"mockup-html","args":{"title":"x"}}', "Ini hasilnya."];
+  const prompts = [], tools = [];
+  const res = await agentChat("buat", { skills, message: "buat", chatFn: async (q) => { prompts.push(q); return { text: replies.shift(), references: [] }; }, onTool: (t) => tools.push(t) });
+  assert.equal(res.text, "Ini hasilnya.");
+  assert.equal(tools[0].name, "load_skill");
+  assert.match(prompts[1], /SKILL BODY/);
+});
