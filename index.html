@@ -213,19 +213,19 @@ const $ = (id) => document.getElementById(id);
 const KEY = "islam-chat:v2";
 // the professionals you can chat with (software house first, then social media); each has one conversation and its own persona file
 const AGENTS = [
-  { id: "po", name: "Raka", persona: "personas/po.md", color: "#2563eb", about: "Software House · Product Owner" },
-  { id: "ba", name: "Nadia", persona: "personas/ba.md", color: "#0891b2", about: "Software House · Business Analyst" },
-  { id: "engineer", name: "Bima", persona: "personas/engineer.md", color: "#4f46e5", about: "Software House · Software Engineer" },
-  { id: "qa", name: "Sinta", persona: "personas/qa.md", color: "#059669", about: "Software House · QA / QC Engineer" },
-  { id: "designer", name: "Kirana", persona: "personas/designer.md", color: "#c026d3", about: "Software House · UI / UX Designer" },
-  { id: "devops", name: "Fajar", persona: "personas/devops.md", color: "#475569", about: "Software House · DevOps / SRE" },
-  { id: "delivery", name: "Citra", persona: "personas/delivery.md", color: "#0d9488", about: "Software House · Delivery Manager" },
-  { id: "brand", name: "Arya", persona: "personas/brand.md", color: "#ea580c", about: "Social Media · Brand Strategist" },
-  { id: "planner", name: "Laras", persona: "personas/planner.md", color: "#db2777", about: "Social Media · Content Planner" },
-  { id: "smm", name: "Tara", persona: "personas/smm.md", color: "#e11d48", about: "Social Media · Social Media Manager" },
-  { id: "community", name: "Bayu", persona: "personas/community.md", color: "#b45309", about: "Social Media · Community Manager" },
-  { id: "copywriter", name: "Salsa", persona: "personas/copywriter.md", color: "#7c3aed", about: "Social Media · Copywriter" },
-  { id: "analyst", name: "Rendra", persona: "personas/analyst.md", color: "#0284c7", about: "Social Media · Social Media Analyst" },
+  { id: "po", name: "Raka", persona: "personas/po.md", avatar: "personas/raka.jpg", color: "#2563eb", about: "Software House · Product Owner" },
+  { id: "ba", name: "Nadia", persona: "personas/ba.md", avatar: "personas/nadia.jpg", color: "#0891b2", about: "Software House · Business Analyst" },
+  { id: "engineer", name: "Bima", persona: "personas/engineer.md", avatar: "personas/bima.jpg", color: "#4f46e5", about: "Software House · Software Engineer" },
+  { id: "qa", name: "Sinta", persona: "personas/qa.md", avatar: "personas/sinta.jpg", color: "#059669", about: "Software House · QA / QC Engineer" },
+  { id: "designer", name: "Kirana", persona: "personas/designer.md", avatar: "personas/kirana.jpg", color: "#c026d3", about: "Software House · UI / UX Designer" },
+  { id: "devops", name: "Fajar", persona: "personas/devops.md", avatar: "personas/fajar.jpg", color: "#475569", about: "Software House · DevOps / SRE" },
+  { id: "delivery", name: "Citra", persona: "personas/delivery.md", avatar: "personas/citra.jpg", color: "#0d9488", about: "Software House · Delivery Manager" },
+  { id: "brand", name: "Arya", persona: "personas/brand.md", avatar: "personas/arya.jpg", color: "#ea580c", about: "Social Media · Brand Strategist" },
+  { id: "planner", name: "Laras", persona: "personas/planner.md", avatar: "personas/laras.jpg", color: "#db2777", about: "Social Media · Content Planner" },
+  { id: "smm", name: "Tara", persona: "personas/smm.md", avatar: "personas/tara.jpg", color: "#e11d48", about: "Social Media · Social Media Manager" },
+  { id: "community", name: "Bayu", persona: "personas/community.md", avatar: "personas/bayu.jpg", color: "#b45309", about: "Social Media · Community Manager" },
+  { id: "copywriter", name: "Salsa", persona: "personas/copywriter.md", avatar: "personas/salsa.jpg", color: "#7c3aed", about: "Social Media · Copywriter" },
+  { id: "analyst", name: "Rendra", persona: "personas/analyst.md", avatar: "personas/rendra.jpg", color: "#0284c7", about: "Social Media · Social Media Analyst" },
 ];
 
 let state = { chats: [], current: null };

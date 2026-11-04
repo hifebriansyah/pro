@@ -51,7 +51,7 @@ node bin/proxy.js                          # the same /agent on 127.0.0.1:8787, 
 
 ## Avatars
 
-The round picture is the first letter of the name on the professional's colour. To use a photo, add `avatar: "personas/<name>.jpg"` to the professional's line in `AGENTS`. `python3 tools/make_image.py personas/*.jpg` makes pictures small and square (256x256), keeping your originals in `personas/originals/` (git-ignored); needs `pip install pillow`. Options: `--size`, `--quality`, `--focus`, `--format jpg|webp`, `--out DIR`, `--no-backup`.
+Each professional has a photo, `personas/<name>.jpg` (256x256), shown round in the chat list and header; it is set by `avatar:` on the professional's line in `AGENTS`, and if a file is missing the first letter of the name on the professional's colour is shown instead. `python3 tools/make_image.py personas/*.jpg` makes new pictures small and square, keeping your originals in `personas/originals/` (git-ignored, so keep your own backup); needs `pip install pillow`. Options: `--size`, `--quality`, `--focus`, `--format jpg|webp`, `--out DIR`, `--no-backup`.
 
 ## Logo, icons and share image
 
