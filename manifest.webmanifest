@@ -1,0 +1,17 @@
+{
+  "name": "Pro",
+  "short_name": "Pro",
+  "description": "Chat with AI professionals for software houses and social media",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "lang": "id",
+  "background_color": "#1c1917",
+  "theme_color": "#292524",
+  "icons": [
+    { "src": "icons/icon-192.png?v=77f74757", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png?v=9eb80387", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png?v=3919bb26", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

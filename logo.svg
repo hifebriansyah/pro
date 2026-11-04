@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Outer Circuit Line -->
+  <path d="M 55,170 L 55,40 L 155,40 L 155,80 L 100,80 L 100,105 L 145,105 L 145,140 L 100,140" fill="none" stroke="#f59e0b" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="55" cy="170" r="12" fill="#fbbf24"/>
+  <circle cx="100" cy="140" r="10" fill="#d97706"/>
+</svg>

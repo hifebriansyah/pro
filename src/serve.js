@@ -1,0 +1,57 @@
+// One /agent request, shared by bin/proxy.js (Node) and worker/pro.js (Cloudflare Worker): check the body, run the agent loop and
+// report every step as an event, in the islam-gpt SSE shape the page already reads:
+//   {type:"tool",phase:"start"|"end",name,args,error?}  {type:"image",...}  {type:"document",title,markdown}  {type:"chunk",text}
+//   {type:"references",data}  {type:"error",message}  {type:"done"}
+import { agentChat } from "./agent.js";
+
+export const MAX_BODY = 20_000;
+
+/** The JSON body of POST /agent, cleaned; throws "need JSON {question}" when it is not usable. */
+export function parseAgentBody(text) {
+  let b = null;
+  try {
+    b = JSON.parse(text);
+  } catch {}
+  if (!b || typeof b.question !== "string" || !b.question.trim()) throw new Error("need JSON {question}");
+  return {
+    question: b.question.slice(0, 12_000),
+    deviceId: typeof b.deviceId === "string" ? b.deviceId.slice(0, 64) : undefined,
+    persona: typeof b.persona === "string" ? b.persona.slice(0, 6000) : "",
+    message: typeof b.message === "string" ? b.message.slice(0, 2000) : "", // the user's latest text: the skills' trigger words are matched on it
+  };
+}
+
+const brief = (args) => String(args?.query ?? args?.url ?? args?.name ?? "").slice(0, 120);
+
+/**
+ * Run the agent for one request, calling send(event) as it goes. Always ends with {type:"done"}.
+ * Options: send, signal, env (settings for the tools), skills, timeZone, chatFn (tests).
+ * Resolves to a summary for the log: { tools: [{name, arg, error?}], steps, documents, images, chars, error?, aborted? }.
+ */
+export async function runAgent(body, { send, signal, env, skills, timeZone, chatFn } = {}) {
+  const summary = { tools: [], steps: 0, documents: 0, images: 0, chars: 0 };
+  try {
+    const res = await agentChat(body.question, {
+      deviceId: body.deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn,
+      onDocument: (d) => { summary.documents++; send({ type: "document", ...d }); },
+      onToolStart: ({ name, args }) => send({ type: "tool", phase: "start", name, args }),
+      onChunk: (text) => { summary.chars += text.length; send({ type: "chunk", text }); },
+      onTool: ({ name, args, result, error, image }) => {
+        const via = /"via":"(\w+)"/.exec(result ?? "")?.[1]; // the search backend that answered (src/tools.js)
+        summary.tools.push({ name, arg: brief(args), ...(via ? { via } : {}), ...(error ? { error: String(error).slice(0, 120) } : {}) });
+        send({ type: "tool", phase: "end", name, args, error });
+        if (image) { summary.images++; send({ type: "image", ...image }); }
+      },
+    });
+    summary.steps = res.steps;
+    send({ type: "references", data: res.references });
+  } catch (e) {
+    if (signal?.aborted) summary.aborted = true; // the visitor left: nothing to tell them
+    else {
+      summary.error = String(e.message).slice(0, 200);
+      send({ type: "error", message: e.message });
+    }
+  }
+  send({ type: "done" });
+  return summary;
+}

@@ -1,0 +1,48 @@
+# Deploy the static chat site (index.html, manifest, logo, share image, icons/, personas/) to GitHub Pages
+name: Deploy to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test (offline)
+        run: npm run test:offline
+      - name: Collect the site files
+        run: |
+          mkdir _site
+          cp index.html CNAME .nojekyll manifest.webmanifest logo.svg favicon.ico og-image.png _site/
+          cp -r personas icons _site/
+      - name: Version the icon addresses (cache busting)
+        run: python3 tools/stamp_icons.py _site
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

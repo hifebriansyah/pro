@@ -1,0 +1,25 @@
+{
+  // The pro Worker (worker/pro.js): the internet tools and skills for the chat page. Deployed by: python3 tools/deploy_worker.py
+  "name": "pro-worker",
+  "main": "pro.js",
+  "compatibility_date": "2025-09-01",
+  // The public address the page calls (PROXY in index.html). The deploy attaches it and turns the workers.dev address off.
+  "domain": "pro-worker.situs.id",
+  // Near Singapore: close to the visitors and to islam-gpt.org's users.
+  "placement": { "region": "aws:ap-southeast-1" },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://pro.situs.id,http://localhost,https://localhost,http://127.0.0.1",
+    // Workers run in UTC: "today" in the prompt is this time zone's date.
+    "TIMEZONE": "Asia/Jakarta",
+    // The request log (secret AXIOM_TOKEN, copied from .env by the deploy): this dataset, in the US region.
+    "AXIOM_DATASET": "pro.situs.id",
+    "AXIOM_URL": "https://us-east-1.aws.edge.axiom.co"
+  },
+  // Secret BRAVE_API_KEY (optional, better search): entered in the Cloudflare dashboard (Worker > Settings > Variables and Secrets); deploys keep it.
+  // Without it the search is DuckDuckGo, then Wikipedia.
+  // A question is 1 to 4 calls to islam-gpt.org plus a search: at most 6 a minute from one IP address, and 60 a minute for everybody together.
+  "ratelimits": [
+    { "name": "LIMITER", "namespace_id": "3101", "simple": { "limit": 6, "period": 60 } },
+    { "name": "LIMITER_ALL", "namespace_id": "3102", "simple": { "limit": 60, "period": 60 } }
+  ]
+}

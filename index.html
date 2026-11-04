@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pro</title>
+<meta name="description" content="Chat with AI professionals for software houses and social media">
+<link rel="canonical" href="https://pro.situs.id/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pro">
+<meta property="og:title" content="Pro">
+<meta property="og:description" content="Chat with AI professionals for software houses and social media">
+<meta property="og:url" content="https://pro.situs.id/">
+<meta property="og:image" content="https://pro.situs.id/og-image.png?v=5668454e">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pro: Chat with AI professionals for software houses and social media.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pro">
+<meta name="twitter:description" content="Chat with AI professionals for software houses and social media">
+<meta name="twitter:image" content="https://pro.situs.id/og-image.png?v=5668454e">
+<link rel="icon" href="logo.svg?v=8b0d9cd8" type="image/svg+xml">
+<link rel="icon" href="icons/favicon.png?v=d239021f" type="image/png" sizes="48x48">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=696cd758">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f7f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#292524" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pro">
+<style>
+  /* The palette comes from the logo (logo.svg): its three ambers, #f59e0b (the line), #fbbf24 and #d97706 (the dots), on warm stone greys.
+     --accent is the amber for backgrounds (buttons) with --on-accent text on it; --ink is the amber for icons and --link for links, darker
+     in light mode and lighter in dark mode so they stay readable on the panels and bubbles. Pairs checked for WCAG contrast:
+     text 4.5:1 on every surface, muted text 4.5:1 or more, links 4.5:1, on-accent 8:1. */
+  :root {
+    --bg: #e7e2da; --panel: #ffffff; --panel-2: #f7f3ec; --line: #e9e2d6; --text: #1c1917; --muted: #655e58;
+    --accent: #f59e0b; --on-accent: #1c1917; --ink: #b45309; --link: #92400e;
+    --out: #fadf8f; --in: #ffffff; --chat-bg: #f6efe3; --hover: #faf6ef; --active: #f1eadf; --danger: #c81e1e;
+    --shadow: rgba(28, 25, 23, .13); --thumb: rgba(120, 113, 108, .5); --thumb-hover: rgba(120, 113, 108, .8); --dots: rgba(120, 113, 108, .08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0a09; --panel: #1c1917; --panel-2: #292524; --line: #3a3532; --text: #fafaf9; --muted: #a8a29e;
+      --accent: #f59e0b; --on-accent: #1c1917; --ink: #fbbf24; --link: #fbbf24;
+      --out: #512409; --in: #292524; --chat-bg: #14110f; --hover: #26211f; --active: #342e2b; --danger: #f87171;
+      --shadow: rgba(0, 0, 0, .35); --thumb: rgba(168, 162, 158, .45); --thumb-hover: rgba(168, 162, 158, .75); --dots: rgba(168, 162, 158, .06);
+    }
+  }
+  ::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+  textarea, input { caret-color: var(--accent); }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .app { display: flex; height: 100dvh; width: 100%; background: var(--panel); } /* full width, like WhatsApp Web: no centred column */
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+
+
+  /* mac-style scrollbars: thin, rounded, hidden until you hover or scroll */
+  .list, .msgs, .md, .md pre, .md .table-wrap, .composer textarea { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .list:hover, .msgs:hover, .md:hover, .md pre:hover, .md .table-wrap:hover, .composer textarea:hover { scrollbar-color: var(--thumb) transparent; }
+  .list::-webkit-scrollbar, .msgs::-webkit-scrollbar, .md::-webkit-scrollbar, .md pre::-webkit-scrollbar, .md .table-wrap::-webkit-scrollbar, .composer textarea::-webkit-scrollbar { width: 9px; height: 9px; }
+  .list::-webkit-scrollbar-track, .msgs::-webkit-scrollbar-track, .md::-webkit-scrollbar-track, .md pre::-webkit-scrollbar-track, .md .table-wrap::-webkit-scrollbar-track, .composer textarea::-webkit-scrollbar-track { background: transparent; }
+  .list::-webkit-scrollbar-thumb, .msgs::-webkit-scrollbar-thumb, .md::-webkit-scrollbar-thumb, .md pre::-webkit-scrollbar-thumb, .md .table-wrap::-webkit-scrollbar-thumb, .composer textarea::-webkit-scrollbar-thumb { background: transparent; border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
+  .list:hover::-webkit-scrollbar-thumb, .msgs:hover::-webkit-scrollbar-thumb, .md:hover::-webkit-scrollbar-thumb, .md pre:hover::-webkit-scrollbar-thumb, .md .table-wrap:hover::-webkit-scrollbar-thumb, .composer textarea:hover::-webkit-scrollbar-thumb { background-color: var(--thumb); }
+  .list::-webkit-scrollbar-thumb:hover, .msgs::-webkit-scrollbar-thumb:hover, .md::-webkit-scrollbar-thumb:hover, .md pre::-webkit-scrollbar-thumb:hover, .md .table-wrap::-webkit-scrollbar-thumb:hover { background-color: var(--thumb-hover); }
+
+  /* sidebar */
+  .side { width: 380px; max-width: 40%; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .side header, .chat header { height: 59px; padding: 0 16px; background: var(--panel-2); display: flex; align-items: center; gap: 12px; flex: none; }
+  .side h1 { font-size: 19px; font-weight: 600; margin: 0; flex: 1; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+  .icon-btn:hover { background: var(--active); }
+  .icon-btn svg, .send svg, .meta svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn svg { width: 22px; height: 22px; }
+  .search { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .search input { width: 100%; border: 0; border-radius: 8px; background: var(--panel-2); color: var(--text); padding: 9px 14px; font: inherit; outline: none; }
+  .list { overflow-y: auto; flex: 1; }
+  .item { display: flex; gap: 14px; padding: 0 14px; align-items: center; width: 100%; text-align: left; height: 72px; }
+  .item:hover { background: var(--hover); }
+  .item.active { background: var(--active); }
+  .item .body { flex: 1; min-width: 0; border-bottom: 1px solid var(--line); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .row .name { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .time { font-size: 12px; color: var(--muted); flex: none; }
+  .preview { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar { width: 49px; height: 49px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 19px; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .empty-list { padding: 40px 24px; text-align: center; color: var(--muted); }
+
+  /* chat */
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--chat-bg); position: relative; }
+  .chat header { background: var(--panel-2); cursor: default; }
+  .chat header .title { flex: 1; min-width: 0; }
+  .chat header .title b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat header .title span { font-size: 13px; color: var(--muted); }
+  .back { display: none; }
+  .msgs { flex: 1; overflow-y: auto; padding: 18px max(4%, 16px); display: flex; flex-direction: column; gap: 3px;
+    background-image: radial-gradient(circle at 20px 20px, var(--dots) 2px, transparent 3px); background-size: 40px 40px; }
+  .bubble { max-width: min(75%, 640px); padding: 6px 9px 7px 10px; border-radius: 8px; box-shadow: 0 1px 0.5px var(--shadow); position: relative; word-wrap: break-word; overflow-wrap: anywhere; }
+  .bubble.out { align-self: flex-end; background: var(--out); border-top-right-radius: 0; margin-top: 6px; }
+  .bubble.in { align-self: flex-start; background: var(--in); border-top-left-radius: 0; margin-top: 6px; }
+  .bubble.cont { margin-top: 3px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+  .bubble .text { white-space: pre-wrap; }
+  .bubble .text a.ext { color: var(--link); text-decoration: underline; }
+  .bubble.pic { padding: 3px; }
+  .bubble.pic img { display: block; max-width: 100%; max-height: 360px; border-radius: 6px; }
+  .bubble .meta { float: right; margin: 6px 0 -4px 12px; font-size: 11px; color: var(--muted); display: flex; gap: 3px; align-items: center; }
+  .bubble.err .text { color: var(--danger); }
+  .typing { display: inline-flex; gap: 4px; padding: 6px 2px; }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+  .day { align-self: center; background: var(--panel); color: var(--muted); font-size: 12.5px; padding: 5px 12px; border-radius: 8px; margin: 10px 0 4px; box-shadow: 0 1px 0.5px var(--shadow); }
+
+  .composer { flex: none; display: flex; gap: 10px; align-items: flex-end; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--panel-2); }
+  .composer textarea { flex: 1; resize: none; max-height: 140px; border: 0; border-radius: 8px; background: var(--panel); color: var(--text); padding: 10px 14px; font: inherit; outline: none; }
+  .send { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; flex: none; }
+  .send:disabled { opacity: .5; cursor: default; }
+  .send svg { width: 22px; height: 22px; }
+  .meta svg { width: 15px; height: 15px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; font-style: italic; }
+  .status svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; animation: blink 1.2s infinite; }
+
+  .welcome { margin: auto; text-align: center; color: var(--muted); max-width: 380px; padding: 24px; }
+  .welcome h2 { color: var(--text); font-weight: 300; font-size: 28px; margin: 0 0 10px; }
+  .welcome .primary { margin-top: 18px; background: var(--accent); color: var(--on-accent); border-radius: 24px; padding: 10px 22px; font-weight: 500; }
+  .hidden { display: none !important; }
+
+
+  /* document panel (right side) */
+  .doc { width: 46%; max-width: 680px; flex: none; border-left: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; background: var(--panel); }
+  .doc header { height: 59px; padding: 0 16px; background: var(--panel-2); display: flex; align-items: center; gap: 4px; flex: none; }
+  .doc header .title { flex: 1; min-width: 0; }
+  .doc header .title b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc header .title span { font-size: 13px; color: var(--muted); }
+  .md { flex: 1; overflow-y: auto; padding: 22px 28px 40px; line-height: 1.6; overflow-wrap: break-word; } /* break-word, not anywhere: anywhere shrinks table columns to single letters */
+  .md > :first-child { margin-top: 0; }
+  .md h1 { font-size: 1.7em; margin: 1.2em 0 .5em; line-height: 1.25; }
+  .md h2 { font-size: 1.3em; margin: 1.4em 0 .5em; padding-bottom: .25em; border-bottom: 1px solid var(--line); }
+  .md h3, .md h4, .md h5, .md h6 { font-size: 1.08em; margin: 1.2em 0 .4em; }
+  .md p { margin: .7em 0; }
+  .md ul, .md ol { margin: .6em 0; padding-left: 1.5em; }
+  .md li { margin: .25em 0; }
+  .md li > ul, .md li > ol { margin: .2em 0; }
+  .md a { color: var(--link); text-decoration: underline; }
+  .md code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel-2); padding: .1em .35em; border-radius: 4px; }
+  .md pre { background: var(--panel-2); padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: .9em 0; }
+  .md pre code { background: none; padding: 0; }
+  .md blockquote { margin: .9em 0; padding: .1em 1em; border-left: 3px solid var(--accent); color: var(--muted); }
+  .md hr { border: 0; border-top: 1px solid var(--line); margin: 1.4em 0; }
+  .md .table-wrap { overflow-x: auto; margin: .9em 0; }
+  .md table { border-collapse: collapse; width: 100%; font-size: .95em; }
+  .md th, .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  .md th { background: var(--panel-2); font-weight: 600; }
+  .bubble.card { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 12px; max-width: min(75%, 360px); }
+  .bubble.card:hover { background: var(--hover); }
+  .bubble.card svg { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .bubble.card b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bubble.card span { font-size: 12px; color: var(--muted); }
+  @media (max-width: 1100px) { .app.doc-open .side { display: none; } }
+  @media (max-width: 760px) {
+    .doc { position: fixed; inset: 0; z-index: 3; width: 100%; max-width: none; border: 0; }
+    .md { padding: 18px 16px 40px; }
+    .side { width: 100%; max-width: none; }
+    .chat { position: fixed; inset: 0; z-index: 2; transform: translateX(100%); transition: transform .2s; }
+    .app.in-chat .chat { transform: none; }
+    .back { display: grid; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side">
+    <header>
+      <h1>Chat</h1>
+    </header>
+    <div class="search"><input id="q" placeholder="Cari percakapan" autocomplete="off"></div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main class="chat">
+    <div class="welcome" id="welcome">
+      <h2>Chat</h2>
+      <div>Pilih profesional di samping untuk mulai.</div>
+    </div>
+    <header class="hidden" id="head">
+      <button class="icon-btn back" id="back" aria-label="Kembali"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
+      <div class="avatar" id="hav" style="width:40px;height:40px;font-size:16px"></div>
+      <div class="title"><b id="htitle"></b><span id="hsub"></span></div>
+      <button class="icon-btn" id="web" title="Akses internet" aria-label="Akses internet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></button>
+      <button class="icon-btn" id="del" title="Bersihkan percakapan" aria-label="Bersihkan percakapan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
+    </header>
+    <div class="msgs hidden" id="msgs"></div>
+    <form class="composer hidden" id="form">
+      <textarea id="input" rows="1" placeholder="Ketik pesan" autocomplete="off"></textarea>
+      <button class="send" id="send" aria-label="Kirim"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 3 9-3 9 19-9Z"/><path d="M6 12h16"/></svg></button>
+    </form>
+  </main>
+  <aside class="doc hidden" id="doc" aria-label="Dokumen">
+    <header>
+      <div class="title"><b id="doc-title"></b><span>Markdown</span></div>
+      <button class="icon-btn" id="doc-copy" title="Salin Markdown" aria-label="Salin Markdown"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+      <button class="icon-btn" id="doc-dl" title="Unduh .md" aria-label="Unduh .md"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
+      <button class="icon-btn" id="doc-close" title="Tutup" aria-label="Tutup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </header>
+    <article class="md" id="doc-body"></article>
+  </aside>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const KEY = "islam-chat:v2";
+// the professionals you can chat with (software house first, then social media); each has one conversation and its own persona file
+const AGENTS = [
+  { id: "po", name: "Raka", persona: "personas/po.md", color: "#2563eb", about: "Software House · Product Owner" },
+  { id: "ba", name: "Nadia", persona: "personas/ba.md", color: "#0891b2", about: "Software House · Business Analyst" },
+  { id: "engineer", name: "Bima", persona: "personas/engineer.md", color: "#4f46e5", about: "Software House · Software Engineer" },
+  { id: "qa", name: "Sinta", persona: "personas/qa.md", color: "#059669", about: "Software House · QA / QC Engineer" },
+  { id: "designer", name: "Kirana", persona: "personas/designer.md", color: "#c026d3", about: "Software House · UI / UX Designer" },
+  { id: "devops", name: "Fajar", persona: "personas/devops.md", color: "#475569", about: "Software House · DevOps / SRE" },
+  { id: "delivery", name: "Citra", persona: "personas/delivery.md", color: "#0d9488", about: "Software House · Delivery Manager" },
+  { id: "brand", name: "Arya", persona: "personas/brand.md", color: "#ea580c", about: "Social Media · Brand Strategist" },
+  { id: "planner", name: "Laras", persona: "personas/planner.md", color: "#db2777", about: "Social Media · Content Planner" },
+  { id: "smm", name: "Tara", persona: "personas/smm.md", color: "#e11d48", about: "Social Media · Social Media Manager" },
+  { id: "community", name: "Bayu", persona: "personas/community.md", color: "#b45309", about: "Social Media · Community Manager" },
+  { id: "copywriter", name: "Salsa", persona: "personas/copywriter.md", color: "#7c3aed", about: "Social Media · Copywriter" },
+  { id: "analyst", name: "Rendra", persona: "personas/analyst.md", color: "#0284c7", about: "Social Media · Social Media Analyst" },
+];
+
+let state = { chats: [], current: null };
+try { state = { ...state, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch {}
+for (const a of AGENTS) if (!state.chats.some((c) => c.id === a.id)) state.chats.push({ id: a.id, messages: [], updated: 0 });
+state.chats = AGENTS.map((a) => state.chats.find((c) => c.id === a.id));
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+const chatById = (id) => state.chats.find((c) => c.id === id);
+const agentOf = (id) => AGENTS.find((a) => a.id === id);
+const hhmm = (t) => new Date(t).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+const dayLabel = (t) => {
+  const d = new Date(t), now = new Date();
+  const diff = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  return diff === 0 ? "Hari ini" : diff === 1 ? "Kemarin" : d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+};
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const API = "https://www.islam-gpt.org";
+// The Worker that lets the AI use the internet and write documents (worker/pro.js): it runs the search/read-page loop so no key is on the page.
+// To develop against the local proxy (node bin/proxy.js) open the page once with ?proxy=http://127.0.0.1:8787 (?proxy= alone goes back to the Worker).
+// Only a localhost address is accepted, so a link can never point your chat at somebody else's server.
+const WORKER = "https://pro-worker.situs.id";
+const PROXY = (() => {
+  try {
+    const asked = new URLSearchParams(location.search).get("proxy");
+    if (asked !== null) {
+      if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(asked)) localStorage.setItem("islam-chat:proxy", asked);
+      else if (asked === "") localStorage.removeItem("islam-chat:proxy");
+    }
+    return localStorage.getItem("islam-chat:proxy") || WORKER;
+  } catch { return WORKER; }
+})();
+let webOn = false;
+try { webOn = localStorage.getItem("islam-chat:web") === "1"; } catch {}
+// an anonymous id for this browser, made once
+const DEVICE_ID = (() => {
+  try {
+    let id = localStorage.getItem("islam-chat:device");
+    if (!id) { id = Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[n % 62]).join(""); localStorage.setItem("islam-chat:device", id); }
+    return id;
+  } catch { return "anon" + Math.random().toString(36).slice(2, 20); }
+})();
+// the round avatar: the professional's picture, if they have one (avatar: in AGENTS; personas/<name>.jpg, made small and square by tools/make_image.py), else the first letter on the agent's colour
+function paintAvatar(node, ag) {
+  const letter = ag.name.charAt(0);
+  node.style.background = ag.color;
+  node.textContent = letter;
+  if (!ag.avatar) return;
+  const img = el("img");
+  img.alt = "";
+  img.onload = () => node.replaceChildren(img); // only swap the letter out once the picture is really there
+  img.onerror = () => {}; // missing file: the letter stays
+  img.src = ag.avatar;
+}
+const busy = new Set(); // chat ids with an answer in flight
+
+function renderList() {
+  const q = $("q").value.trim().toLowerCase();
+  const list = $("list");
+  list.replaceChildren();
+  const chats = [...state.chats].sort((a, b) => b.updated - a.updated).filter((c) => !q || (agentOf(c.id).name + " " + agentOf(c.id).about).toLowerCase().includes(q));
+  if (!chats.length) list.append(el("div", "empty-list", "Tidak ada hasil."));
+  for (const c of chats) {
+    const last = c.messages[c.messages.length - 1];
+    const b = el("button", "item" + (c.id === state.current ? " active" : ""));
+    const ag = agentOf(c.id);
+    const av = el("div", "avatar");
+    paintAvatar(av, ag);
+    const body = el("div", "body");
+    const row = el("div", "row");
+    row.append(el("span", "name", ag.name), el("span", "time", last ? hhmm(last.t) : ""));
+    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : ag.about));
+    b.append(av, body);
+    b.onclick = () => open(c.id);
+    list.append(b);
+  }
+}
+
+// links: [text](url) and bare URLs become <a> (http(s) only, opens in a new tab). A bare URL may omit the scheme
+// (www.wikipedia.org, wikipedia.org/wiki/X when it ends in a common TLD); https:// is added to the href.
+const TLD = "com|org|net|edu|gov|info|io|co|id|me|ai|app|dev|xyz|tv|my|sg|uk|us|au|de|jp";
+const LINK = new RegExp(
+  String.raw`(\[[^\]\n]+\]\((?:https?:\/\/|www\.)[^\s)]+\)|(?:https?:\/\/|www\.)[^\s<>"]+|(?<![\w@./-])(?:[a-z0-9-]+\.)+(?:${TLD})(?![\w-])(?:\/[^\s<>"]*)?)`,
+  "gi",
+);
+const MDLINK = /^\[([^\]\n]+)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)$/i;
+const withScheme = (u) => (/^https?:\/\//i.test(u) ? u : "https://" + u);
+function link(href, label) {
+  const a = el("a", "ext", label);
+  a.href = withScheme(href); a.target = "_blank"; a.rel = "noopener noreferrer";
+  return a;
+}
+function withLinks(parent, text) {
+  text.split(LINK).forEach((part, i) => {
+    if (i % 2 === 0) { if (part) parent.append(document.createTextNode(part)); return; } // split with a capture group: odd parts are the matches
+    const md = MDLINK.exec(part);
+    if (md) { parent.append(link(md[2], md[1])); return; }
+    // sentence punctuation and an unmatched closing bracket right after the URL are not part of it (Puasa_(Islam) keeps its own)
+    let url = part;
+    for (let prev = ""; prev !== url; ) {
+      prev = url;
+      url = url.replace(/[.,;:!?*'"\]]+$/, "");
+      if (url.endsWith(")") && url.split("(").length < url.split(")").length) url = url.slice(0, -1);
+    }
+    parent.append(link(url, url), document.createTextNode(part.slice(url.length)));
+  });
+}
+
+// **bold**, *italic* and links only; everything else stays plain text (built with DOM nodes, never innerHTML)
+function inline(node, text) {
+  for (const part of text.split(/(\*\*[^*]+?\*\*|\*[^*\n]+?\*)/g)) {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) { const b = el("b"); withLinks(b, part.slice(2, -2)); node.append(b); }
+    else if (part.startsWith("*") && part.endsWith("*") && part.length > 2) { const i = el("i"); withLinks(i, part.slice(1, -1)); node.append(i); }
+    else withLinks(node, part);
+  }
+}
+function fmt(node, text) { node.replaceChildren(); inline(node, text); }
+
+// ---- Markdown for the document panel: headings, lists (nested), tables, quotes, code, hr, plus inline `code`/bold/italic/links.
+// Built from DOM nodes only (no innerHTML), so model output can never inject markup.
+function mdInline(node, text) {
+  text.split(/(`[^`\n]+`)/).forEach((part, i) => (i % 2 ? node.append(el("code", null, part.slice(1, -1))) : inline(node, part)));
+}
+const MD = {
+  fence: /^\s*(```|~~~)/,
+  heading: /^(#{1,6})\s+(.*?)\s*#*\s*$/,
+  hr: /^\s*([-*_])(\s*\1){2,}\s*$/,
+  quote: /^\s*>\s?/,
+  item: /^(\s*)([-*+]|\d+[.)])\s+(.*)$/,
+  tableSep: /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/,
+};
+const cells = (row) => row.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+const startsBlock = (l, next) => MD.fence.test(l) || MD.heading.test(l) || MD.hr.test(l) || MD.quote.test(l) || MD.item.test(l) || (l.includes("|") && MD.tableSep.test(next ?? ""));
+
+function renderMarkdown(md) {
+  const root = document.createDocumentFragment();
+  const lines = md.replace(/\r\n?/g, "\n").split("\n");
+  for (let i = 0; i < lines.length; ) {
+    const line = lines[i];
+    let m;
+    if (!line.trim()) { i++; continue; }
+    if ((m = MD.fence.exec(line))) {
+      const buf = [];
+      for (i++; i < lines.length && !lines[i].trim().startsWith(m[1]); i++) buf.push(lines[i]);
+      i++;
+      const pre = el("pre"); pre.append(el("code", null, buf.join("\n"))); root.append(pre);
+    } else if ((m = MD.heading.exec(line))) {
+      const h = el("h" + m[1].length); mdInline(h, m[2]); root.append(h); i++;
+    } else if (MD.hr.test(line)) {
+      root.append(el("hr")); i++;
+    } else if (line.includes("|") && MD.tableSep.test(lines[i + 1] ?? "")) {
+      const wrap = el("div", "table-wrap"), table = el("table"), thead = el("thead"), tbody = el("tbody"), hr = el("tr");
+      for (const c of cells(line)) { const th = el("th"); mdInline(th, c); hr.append(th); }
+      thead.append(hr);
+      for (i += 2; i < lines.length && lines[i].trim() && lines[i].includes("|"); i++) {
+        const tr = el("tr");
+        for (const c of cells(lines[i])) { const td = el("td"); mdInline(td, c); tr.append(td); }
+        tbody.append(tr);
+      }
+      table.append(thead, tbody); wrap.append(table); root.append(wrap);
+    } else if (MD.quote.test(line)) {
+      const buf = [];
+      for (; i < lines.length && MD.quote.test(lines[i]); i++) buf.push(lines[i].replace(MD.quote, ""));
+      const q = el("blockquote"); q.append(renderMarkdown(buf.join("\n"))); root.append(q);
+    } else if (MD.item.test(line)) {
+      const stack = []; // open lists, by indent
+      for (; i < lines.length; i++) {
+        const it = MD.item.exec(lines[i]);
+        if (!it) {
+          if (lines[i].trim() && /^\s+\S/.test(lines[i]) && stack.length) { stack[stack.length - 1].li.append(" " + lines[i].trim()); continue; } // wrapped item text
+          break;
+        }
+        const indent = it[1].replace(/\t/g, "    ").length;
+        while (stack.length && indent < stack[stack.length - 1].indent) stack.pop();
+        if (!stack.length || indent > stack[stack.length - 1].indent) {
+          const list = el(/^\d/.test(it[2]) ? "ol" : "ul");
+          (stack.length ? stack[stack.length - 1].li : root).append(list);
+          stack.push({ indent, list, li: null });
+        }
+        const top = stack[stack.length - 1];
+        top.li = el("li"); mdInline(top.li, it[3]); top.list.append(top.li);
+      }
+    } else {
+      const buf = [];
+      for (; i < lines.length && lines[i].trim() && (!buf.length || !startsBlock(lines[i], lines[i + 1])); i++) buf.push(lines[i].trim());
+      const p = el("p"); mdInline(p, buf.join(" ")); root.append(p);
+    }
+  }
+  return root;
+}
+
+// what the AI is doing while a tool runs, shown in the typing bubble
+const toolStatus = ({ name, args }) =>
+  name === "web_search" ? `mencari “${String(args?.query ?? "").slice(0, 60)}” di internet…`
+  : name === "fetch_url" ? "membaca halaman web…"
+  : name === "show_image" ? "mencari gambar…"
+  : "mencari informasi…";
+// Lucide search
+const ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+
+// Lucide check-check (read ticks)
+const ICON_CHECK_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>';
+
+// one chat bubble: `text` is the message or one paragraph of it; only the last bubble of a message carries the time
+function bubble(m, text, { first = true, last = true } = {}) {
+  const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : "") + (first ? "" : " cont"));
+  const body = el("span", "text");
+  fmt(body, text);
+  b.append(body);
+  if (m.pending && !text) {
+    body.replaceChildren();
+    if (m.status) { const st = el("span", "status", m.status); st.insertAdjacentHTML("afterbegin", ICON_SEARCH); body.append(st); }
+    else { const t = el("span", "typing"); t.append(el("i"), el("i"), el("i")); body.append(t); }
+  }
+  if (last) {
+    const meta = el("span", "meta", hhmm(m.t));
+    if (m.role === "user") meta.insertAdjacentHTML("beforeend", ICON_CHECK_CHECK); // constant markup, no user text
+    b.append(meta);
+  }
+  return b;
+}
+
+// a message with blank lines between paragraphs shows as one bubble per paragraph, like separate WhatsApp messages
+function bubbles(m) {
+  const parts = m.text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) return [bubble(m, m.text.trim())];
+  return parts.map((p, i) => bubble(m, p, { first: i === 0, last: i === parts.length - 1 }));
+}
+
+// a picture the AI chose to show (from Wikimedia Commons, through the proxy)
+function picture(i) {
+  const b = el("div", "bubble in cont pic");
+  const img = el("img");
+  img.src = i.url; img.alt = i.title; img.onload = scrollDown;
+  b.append(img);
+  return b;
+}
+
+// the document panel on the right shows one Markdown document the AI wrote; a card in the chat reopens it
+let docView = null;
+const ICON_FILE_TEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
+function renderDoc() {
+  $("doc").classList.toggle("hidden", !docView);
+  $("app").classList.toggle("doc-open", !!docView);
+  if (!docView) return;
+  $("doc-title").textContent = docView.title;
+  $("doc-body").replaceChildren(renderMarkdown(docView.markdown));
+  $("doc-body").scrollTop = 0;
+}
+const openDoc = (d) => { docView = d; renderDoc(); };
+const closeDoc = () => { docView = null; renderDoc(); };
+function docCard(d) {
+  const b = el("button", "bubble in cont card");
+  b.type = "button";
+  b.insertAdjacentHTML("afterbegin", ICON_FILE_TEXT); // constant markup
+  const t = el("div"); t.append(el("b", null, d.title), el("span", null, "Buka dokumen"));
+  b.append(t);
+  b.onclick = () => openDoc(d);
+  return b;
+}
+
+function scrollDown() { const m = $("msgs"); m.scrollTop = m.scrollHeight; }
+
+function renderChat() {
+  const c = chatById(state.current);
+  for (const id of ["head", "msgs", "form"]) $(id).classList.toggle("hidden", !c);
+  $("welcome").classList.toggle("hidden", !!c);
+  $("app").classList.toggle("in-chat", !!c);
+  if (!c) return;
+  const ag = agentOf(c.id);
+  $("htitle").textContent = ag.name;
+  paintAvatar($("hav"), ag);
+  $("hsub").textContent = busy.has(c.id) ? "mengetik…" : "online";
+  const box = $("msgs");
+  box.replaceChildren();
+  let day = "";
+  for (const m of c.messages) {
+    const d = dayLabel(m.t);
+    if (d !== day) { day = d; box.append(el("div", "day", d)); }
+    box.append(...bubbles(m));
+    for (const i of m.images ?? []) box.append(picture(i));
+    for (const d of m.docs ?? []) box.append(docCard(d));
+  }
+  scrollDown();
+  $("send").disabled = busy.has(c.id);
+}
+
+function open(id) { closeDoc(); state.current = id; save(); renderList(); renderChat(); if (matchMedia("(min-width: 761px)").matches) $("input").focus(); }
+
+// the agent's persona file is put in front of every question: the API has no memory, so a persona sent only once would be forgotten
+const personas = {};
+const loadPersona = (a) => (personas[a.id] ??= fetch(a.persona).then((r) => (r.ok ? r.text() : "")).then((s) => s.trim()).catch(() => ""));
+
+// The API answers each question on its own, so a follow-up carries the recent turns inside the question text.
+const HISTORY_TURNS = 6, HISTORY_ANSWER_CHARS = 500, HISTORY_TOTAL_CHARS = 2500;
+function withHistory(c, question, persona) {
+  const name = agentOf(c.id).name;
+  const turns = c.messages.filter((m) => !m.error && !m.pending && m.text).slice(-HISTORY_TURNS * 2);
+  let lines = turns.map((m) => (m.role === "user" ? "User: " : name + ": ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
+  while (lines.length && lines.join("\n").length > HISTORY_TOTAL_CHARS) lines.shift();
+  const parts = [];
+  if (persona) parts.push(persona);
+  if (lines.length) parts.push(`Earlier in this chat (background only, do not mention it):\n${lines.join("\n")}`);
+  if (!parts.length) return question;
+  return `${parts.join("\n\n")}\n\nUser's ${lines.length ? "new" : "first"} message: ${question}\n\n(Reply in the language of the user's message just above, not the language of the earlier chat.)`;
+}
+
+async function sendMessage(text) {
+  const c = chatById(state.current);
+  if (!c || busy.has(c.id) || !text.trim()) return;
+  const persona = await loadPersona(agentOf(c.id));
+  // with internet on, the proxy gets the persona separately so it can restate it after every tool result
+  const prompt = withHistory(c, text.trim(), webOn ? "" : persona);
+  const now = Date.now();
+  c.messages.push({ role: "user", text: text.trim(), t: now });
+  const reply = { role: "bot", text: "", t: Date.now(), pending: true };
+  c.messages.push(reply);
+  c.updated = now;
+  busy.add(c.id);
+  save(); renderList(); renderChat();
+
+  const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
+  try {
+    let res;
+    if (webOn) {
+      // through the local proxy, which lets the model search the web and streams back the same SSE events
+      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim() }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
+      if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
+    } else {
+      // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
+      const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt }) });
+      if (!q.ok) throw new Error("HTTP " + q.status);
+      const { shareId } = await q.json();
+      if (!shareId) throw new Error("no shareId");
+      res = await fetch(API + "/api/stream/" + encodeURIComponent(shareId), { headers: { Accept: "text/event-stream" } });
+    }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buf = "";
+    read: for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += value;
+      const blocks = buf.split(/\r?\n\r?\n/);
+      buf = blocks.pop();
+      for (const blk of blocks) {
+        const data = blk.split(/\r?\n/).filter((l) => l.startsWith("data:")).map((l) => l.slice(5).replace(/^ /, "")).join("\n");
+        if (!data) continue;
+        const ev = JSON.parse(data);
+        if (ev.type === "chunk") { reply.text += ev.text; reply.t = Date.now(); update(); }
+        else if (ev.type === "image" && /^https:\/\/(upload|thumb)\.wikimedia\.org\//.test(ev.url) && /^https:\/\//.test(ev.page)) { (reply.images ??= []).push({ url: ev.url, title: String(ev.title), credit: String(ev.credit ?? ""), page: ev.page }); update(); }
+        else if (ev.type === "document" && typeof ev.markdown === "string") {
+          const d = { title: String(ev.title || "Dokumen").slice(0, 120), markdown: ev.markdown.slice(0, 100000) };
+          (reply.docs ??= []).push(d);
+          if (state.current === c.id) openDoc(d); // show it on the right as soon as it arrives
+          update();
+        }
+        else if (ev.type === "tool") { reply.status = ev.phase === "start" ? toolStatus(ev) : "menulis jawaban…"; update(); }
+        else if (ev.type === "error") throw new Error(ev.message);
+        else if (ev.type === "done") { reader.cancel(); break read; }
+      }
+    }
+    if (!reply.text) throw new Error("Tidak ada jawaban.");
+  } catch (e) {
+    reply.error = true;
+    reply.text = (reply.text ? reply.text + "\n\n" : "") + "Gagal: " + e.message;
+  }
+  delete reply.pending;
+  delete reply.status;
+  reply.t = Date.now();
+  c.updated = reply.t;
+  busy.delete(c.id);
+  save(); update();
+}
+
+$("doc-close").onclick = closeDoc;
+$("doc-copy").onclick = async () => {
+  try { await navigator.clipboard.writeText(docView.markdown); $("doc-copy").title = "Tersalin ✓"; setTimeout(() => ($("doc-copy").title = "Salin Markdown"), 1500); } catch {}
+};
+$("doc-dl").onclick = () => {
+  const a = el("a");
+  a.href = URL.createObjectURL(new Blob([docView.markdown], { type: "text/markdown" }));
+  a.download = (docView.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dokumen") + ".md";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
+const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
+$("web").onclick = () => { webOn = !webOn; try { localStorage.setItem("islam-chat:web", webOn ? "1" : "0"); } catch {} paintWeb(); };
+paintWeb();
+$("q").oninput = renderList;
+$("back").onclick = () => { closeDoc(); state.current = null; save(); renderList(); renderChat(); };
+$("del").onclick = () => {
+  const c = chatById(state.current);
+  if (!c || busy.has(c.id) || !confirm(`Bersihkan percakapan dengan ${agentOf(c.id).name}?`)) return;
+  c.messages = []; c.updated = 0;
+  save(); renderList(); renderChat();
+};
+$("form").onsubmit = (e) => { e.preventDefault(); const v = $("input").value; $("input").value = ""; $("input").style.height = ""; sendMessage(v); };
+$("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("form").requestSubmit(); } };
+$("input").oninput = (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; };
+
+if (!chatById(state.current)) state.current = null;
+renderList(); renderChat();
+</script>
+</body>
+</html>
