@@ -81,6 +81,7 @@
   .side { width: 380px; max-width: 40%; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
   .side header, .chat header { height: 59px; padding: 0 16px; background: var(--panel-2); display: flex; align-items: center; gap: 12px; flex: none; }
   .side h1 { font-size: 19px; font-weight: 600; margin: 0; flex: 1; }
+  .provider { margin-left: auto; max-width: 112px; font: inherit; font-size: 12px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; }
   .icon-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
   .icon-btn:hover { background: var(--active); }
   .icon-btn svg, .send svg, .meta svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -214,6 +215,7 @@
   <aside class="side">
     <header>
       <h1>Chat</h1>
+      <select id="provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
       <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema"></button>
     </header>
     <div class="search"><input id="q" placeholder="Cari percakapan" autocomplete="off"></div>
@@ -315,6 +317,8 @@ const PROXY = (() => {
     return localStorage.getItem("islam-chat:proxy") || WORKER;
   } catch { return WORKER; }
 })();
+let provider = "islam";   // the answer source: islam-gpt.org, or quran-gpt.netlify.app (only through the Worker: it does not allow other origins)
+try { provider = localStorage.getItem("islam-chat:provider") === "quran" ? "quran" : "islam"; } catch {}
 let webOn = false;
 try { webOn = localStorage.getItem("islam-chat:web") === "1"; } catch {}
 // an anonymous id for this browser, made once
@@ -714,7 +718,8 @@ async function sendMessage(text) {
   if (!c || busy.has(c.id) || !text.trim()) return;
   const persona = await loadPersona(agentOf(c.id));
   // with internet on, the proxy gets the persona separately so it can restate it after every tool result
-  const prompt = withHistory(c, text.trim(), webOn ? "" : persona);
+  const useWorker = webOn || provider === "quran";
+  const prompt = withHistory(c, text.trim(), useWorker ? "" : persona);
   const now = Date.now();
   c.messages.push({ role: "user", text: text.trim(), t: now });
   const reply = { role: "bot", text: "", t: Date.now(), pending: true };
@@ -726,9 +731,9 @@ async function sendMessage(text) {
   const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
   try {
     let res;
-    if (webOn) {
+    if (useWorker) {
       // through the local proxy, which lets the model search the web and streams back the same SSE events
-      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim() }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
+      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
       if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
     } else {
       // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
@@ -803,6 +808,8 @@ $("mock-bg").onclick = (e) => { const b = e.target.closest("button"); if (b && d
 $("mock-devices").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockWidth = Number(b.dataset.w); paintTools(); renderMock(); } };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
 const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
+$("provider").value = provider;
+$("provider").onchange = (e) => { provider = e.target.value === "quran" ? "quran" : "islam"; try { localStorage.setItem("islam-chat:provider", provider); } catch {} };
 $("web").onclick = () => { webOn = !webOn; try { localStorage.setItem("islam-chat:web", webOn ? "1" : "0"); } catch {} paintWeb(); };
 paintWeb();
 $("q").oninput = renderList;

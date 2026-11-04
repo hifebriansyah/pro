@@ -4,6 +4,7 @@
 //   {type:"references",data}  {type:"error",message}  {type:"done"}
 import { agentChat } from "./agent.js";
 import { randomDeviceId } from "./islam.js";
+import { PROVIDERS, quranChat } from "./quran.js";
 
 export const MAX_BODY = 20_000;
 
@@ -18,6 +19,7 @@ export function parseAgentBody(text) {
     question: b.question.slice(0, 12_000),
     deviceId: typeof b.deviceId === "string" ? b.deviceId.slice(0, 64) : undefined,
     persona: typeof b.persona === "string" ? b.persona.slice(0, 6000) : "",
+    provider: PROVIDERS.includes(b.provider) ? b.provider : "islam", // which answer source: islam-gpt.org (default) or quran-gpt.netlify.app
     message: typeof b.message === "string" ? b.message.slice(0, 2000) : "", // the user's latest text: the skills' trigger words are matched on it
   };
 }
@@ -30,11 +32,11 @@ const brief = (args) => String(args?.query ?? args?.url ?? args?.name ?? (args?.
  * Resolves to a summary for the log: { tools: [{name, arg, error?}], steps, documents, mockups, images, chars, error?, aborted? }.
  */
 export async function runAgent(body, { send, signal, env, skills, timeZone, chatFn } = {}) {
-  const summary = { tools: [], steps: 0, documents: 0, mockups: 0, images: 0, chars: 0 };
+  const summary = { provider: body.provider, tools: [], steps: 0, documents: 0, mockups: 0, images: 0, chars: 0 };
   const deviceId = body.deviceId ?? randomDeviceId(); // no id sent: this request gets its own, never one shared by everybody (the parts of one answer use the same id)
   try {
     const res = await agentChat(body.question, {
-      deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn,
+      deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn: chatFn ?? (body.provider === "quran" ? quranChat : undefined),
       onDocument: (d) => { summary.documents++; send({ type: "document", ...d }); },
       onMockup: (m) => { summary.mockups++; send({ type: "mockup", ...m }); },
       onToolStart: ({ name, args }) => send({ type: "tool", phase: "start", name, args }),
