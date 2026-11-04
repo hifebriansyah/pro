@@ -18,6 +18,9 @@
     // The request log (secret AXIOM_TOKEN, copied from .env by the deploy): this dataset, in the US region.
     "AXIOM_DATASET": "pro.situs.id",
     "AXIOM_URL": "https://us-east-1.aws.edge.axiom.co"
+    // Gateway mode (off while BACKEND_URL is missing): set it to the backend's address (backend/, deployed by tools/deploy_backend.py) and this Worker only checks
+    // the origin and the rate limits and passes the stream through; the secret BACKEND_SECRET (from .env, copied by the deploy) must equal the backend's PROXY_SECRET.
+    // "BACKEND_URL": "https://pro-api.vercel.app/agent"
   },
   // Secret BRAVE_API_KEY (optional, better search): entered in the Cloudflare dashboard (Worker > Settings > Variables and Secrets); deploys keep it.
   // Without it the search is DuckDuckGo, then Wikipedia.

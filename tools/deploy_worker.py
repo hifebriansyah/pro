@@ -140,7 +140,7 @@ def main():
     if not payload.get("success"):
         sys.exit(f"Deploy failed: {payload.get('errors')}")
     print(f"Deployed worker '{cfg['name']}' (modules: {', '.join(mods)}; skills: {', '.join(s['name'] for s in found_skills) or 'none'}).")
-    for name in ("AXIOM_TOKEN",):  # copied from .env, never printed
+    for name in ("AXIOM_TOKEN", "BACKEND_SECRET"):  # copied from .env, never printed
         value = os.environ.get(name)
         if value:
             res = call(token, "PUT", f"/accounts/{account}/workers/scripts/{cfg['name']}/secrets", {"name": name, "text": value, "type": "secret_text"})

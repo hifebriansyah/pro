@@ -67,6 +67,25 @@ export default {
       return reply({ error: e.message }, 400);
     }
 
+    // Gateway mode (BACKEND_URL and the secret BACKEND_SECRET are set): the heavy work runs on the backend (src/backend.js, Vercel), where there is no 10 ms CPU limit;
+    // this Worker has done the checks above and only passes the stream through. If the backend is down, fall back to doing the work here.
+    if (env.BACKEND_URL && env.BACKEND_SECRET) {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), Number(env.BACKEND_CONNECT_MS) || 10_000);  // waiting for the first byte of the response, not for the whole answer
+      try {
+        const res = await fetch(env.BACKEND_URL, { method: "POST", headers: { "Content-Type": "application/json", "x-pro-secret": env.BACKEND_SECRET }, body: text, signal: ac.signal });
+        clearTimeout(t);
+        if (res.ok && res.body) {
+          logLine(env, ctx, { ...who, kind: "agent", via: "backend", message: body.message.slice(0, 500) || undefined, ms: Date.now() - started });
+          return new Response(res.body, { headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+        }
+        logLine(env, ctx, { ...who, kind: "backend-failed", status: res.status });
+      } catch (e) {
+        clearTimeout(t);
+        logLine(env, ctx, { ...who, kind: "backend-failed", error: String(e?.message || e).slice(0, 200) });
+      }
+    }
+
     // Stream the events as they happen; the work goes on after this function returns (waitUntil).
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
