@@ -33,6 +33,11 @@ createServer(async (req, res) => {
   const ac = new AbortController();
   res.on("close", () => ac.abort());
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-  await runAgent(body, { send: (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`), signal: ac.signal, skills: loadSkills() }); // skills are read per request: edits apply at once
+  const ping = setInterval(() => res.write(": ping\n\n"), 15_000); // a long answer is quiet between its parts: keep the connection from being closed as idle
+  try {
+    await runAgent(body, { send: (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`), signal: ac.signal, skills: loadSkills() }); // skills are read per request: edits apply at once
+  } finally {
+    clearInterval(ping);
+  }
   res.end();
 }).listen(PORT, "127.0.0.1", () => console.log(`pro proxy on http://127.0.0.1:${PORT} (search: ${process.env.BRAVE_API_KEY ? "Brave, then " : ""}DuckDuckGo, then Wikipedia)`));

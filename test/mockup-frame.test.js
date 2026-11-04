@@ -52,3 +52,9 @@ test("the page puts the preview in an empty sandbox", () => {
   assert.match(html, /frame\.setAttribute\("sandbox", ""\)/); // no allow-scripts, no allow-same-origin
   assert.doesNotMatch(html, /allow-scripts|allow-same-origin/);
 });
+
+test("on a phone the mockup panel is full screen like the Markdown viewer (.doc.wide must be overridden in the phone rules)", () => {
+  const phone = /@media \(max-width: 760px\) \{([\s\S]*?)\n  \}/.exec(html)?.[1] ?? "";
+  assert.match(phone, /\.doc \{ position: fixed; inset: 0;[^}]*width: 100%/);
+  assert.match(phone, /\.doc\.wide \{ width: 100%; max-width: none; \}/); // .doc.wide is stronger than .doc, so .doc alone would leave 64% on a phone
+});

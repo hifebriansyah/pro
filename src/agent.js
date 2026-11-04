@@ -3,9 +3,11 @@
 import { chat as islamChat } from "./islam.js";
 import { TOOLS } from "./tools.js";
 import { matchingSkills, skillTool } from "./skills.js";
+import { MAX_CHARS, MAX_PARTS, cleanContinuation, continuationPrompt, openBlock } from "./continue.js";
 
 const MAX_STEPS = 3;
 const RESULT_CHARS = 4000;
+const CONTINUE_TIMEOUT_MS = 100_000; // one continuation call: islam-gpt takes about 30 s for a long part, so this only catches a stalled one
 const SKILL_CHARS = 8000; // instructions are not search results: do not cut them like one
 
 export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {
@@ -33,7 +35,8 @@ export const stripToolLines = (text) => text.replace(/^[ \t]*(?:TOOL:[ \t]*)?\{"
 export function extractDocuments(reply) {
   const documents = [];
   const text = reply.replace(/<document(?:\s+title="([^"]*)")?\s*>([\s\S]*?)(?:<\/document>|$)/g, (_, title, body) => {
-    const markdown = body.trim();
+    let markdown = body.trim();
+    if ((markdown.match(/^[ \t]*(?:```|~~~)/gm) ?? []).length % 2) markdown += "\n```"; // a document that ends inside a code block (cut off, or the model forgot) gets its fence closed
     if (markdown) documents.push({ title: (title ?? /^#\s+(.+)$/m.exec(markdown)?.[1] ?? "Dokumen").trim().slice(0, 120), markdown });
     return "";
   });
@@ -56,6 +59,39 @@ export function extractMockups(reply) {
     return "";
   });
   return { text: text.replace(/\n{3,}/g, "\n\n").trim(), mockups };
+}
+
+/**
+ * A reply that was cut off inside a document, a mockup or a code fence is carried on: the model is asked to continue from the last character
+ * (src/continue.js) until the block is closed, up to MAX_PARTS parts. If a continuation fails, what was written so far is kept.
+ */
+async function finishReply(first, request, chatFn, opts, { onToolStart, onTool }) {
+  let text = first.text;
+  for (let part = 2; part <= MAX_PARTS && text.length < MAX_CHARS; part++) {
+    const kind = openBlock(text);
+    if (!kind) break;
+    onToolStart?.({ name: "continue", args: { part } });
+    let piece = "", failure;
+    for (let attempt = 1; attempt <= 2; attempt++) { // one retry: a dropped connection or a stalled stream is usually a one-off
+      try {
+        const signal = opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(CONTINUE_TIMEOUT_MS)]) : AbortSignal.timeout(CONTINUE_TIMEOUT_MS);
+        piece = cleanContinuation(text, (await chatFn(continuationPrompt({ request, text, kind, part }), { ...opts, signal })).text, kind);
+        failure = undefined;
+        break;
+      } catch (e) {
+        failure = e;
+        if (opts.signal?.aborted) break; // the visitor left: no retry
+      }
+    }
+    if (failure) {
+      onTool?.({ name: "continue", args: { part }, error: failure.message });
+      break;
+    }
+    onTool?.({ name: "continue", args: { part }, result: `${piece.length} characters` });
+    if (!piece) break;
+    text += piece;
+  }
+  return { ...first, text };
 }
 
 /**
@@ -82,8 +118,9 @@ export async function agentChat(question, { onChunk, onTool, onToolStart, onDocu
       : "";
     // The reply may be a tool call with chatter around it ("Sebentar ya...\nTOOL: {...}"), so hold the whole
     // reply and show it only once we know it is the final answer.
-    const res = await chatFn(base + exchanges.join("") + tail, { ...opts });
+    let res = await chatFn(base + exchanges.join("") + tail, { ...opts });
     const call = step < maxSteps ? parseToolCall(res.text) : null;
+    if (!call) res = await finishReply(res, (message || question).slice(-1500), chatFn, opts, { onToolStart, onTool }); // a cut-off answer is carried on
     if (!call) {
       const withoutMockups = extractMockups(res.text); // first: the HTML inside must not be read as anything else
       for (const m of withoutMockups.mockups) { mockups.push(m); onMockup?.(m); }

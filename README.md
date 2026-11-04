@@ -41,6 +41,17 @@ The list is `AGENTS` in `index.html` (software house first, then social media). 
 - It is an Islamic Q&A service underneath, so it is not tuned for these jobs: expect plain, generic quality, and check numbers, code and claims yourself. The personas tell the professionals not to invent facts.
 - There are no tools for running code or testing a site in a browser yet: the engineer says the code was not run, and QA reads page text only (no clicking, logging in, scripts or layout). Next steps that need more than text: a code sandbox, and a `web_audit` tool (status, headings, links, forms, missing alt text).
 
+## Long answers (continuation)
+
+islam-gpt ends an answer after about 5,000 to 7,000 characters, even in the middle of a document, a page or a program. When a reply is cut off inside a `<document>`, a `<mockup>` or a fenced code block, `src/continue.js` makes the agent ask the model to **carry on from the last character** and joins the parts into one result: up to 6 parts and 60,000 characters per request.
+
+- **What the model is told:** the user's request, the last 1,200 characters, the Markdown headings already written, and the **declarations already written with their parameters** (`csvEscape(value)`, `Order.constructor(inventory, items)`, ...), with "use them as written, never define one twice". Without that map the model forgot a helper from three parts earlier and wrote it twice.
+- **The join is cleaned:** a repeated start is removed, a reopened fence or tag is dropped, "DONE" or a restarted page stops it, and a document that ends inside a code fence gets the fence closed.
+- **One id per request:** a request that arrives without a `deviceId` gets its own random one (all parts of one answer share it). Reusing one id for everybody made a continuation stall in a live test; with a fresh id the same request went through every part.
+- **Robust:** each continuation has a timeout and one retry; if it still fails, what was written so far is kept. The status line shows "melanjutkan jawaban (bagian 3)…", and the Worker and the proxy send a comment line every 15 seconds so the connection is not closed as idle while the model works.
+- **Measured** (the engineer, one request for a complete inventory program in Node): 3 to 4 parts, 85 to 110 seconds, 700 to 780 lines and 19,000 to 24,000 characters through the live Worker, no duplicate declarations, and the code passes `node --check`. It did **not** run cleanly: the example at the bottom calls `inventory.events.on(...)`, which the class does not have. The model cannot run what it writes, so consistency across a long program is not guaranteed: read and run it.
+- **How far it goes:** about 30 seconds a part, so a 6-part answer takes about 3 minutes and gives roughly 25,000 to 30,000 characters, a few hundred to about a thousand lines of code. **Thousands of lines in one request are not possible** this way. For a bigger program, split the work: the engineer proposes the file list first and writes one file per message. A "project mode" that does this by itself and offers a zip is not built yet.
+
 ## Internet access (web tools)
 
 The loop runs in a **Cloudflare Worker**, `worker/pro.js` at https://pro-worker.situs.id (the page's `WORKER` constant), so it also works on GitHub Pages and from `http://localhost`. It is deployed like `../guru` and `../faith`:

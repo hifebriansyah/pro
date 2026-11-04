@@ -4,10 +4,10 @@
 const ENV = typeof process !== "undefined" ? process.env : {}; // Workers have no process
 export const BASE_URL = ENV.ISLAM_BASE_URL ?? "https://www.islam-gpt.org";
 // an anonymous id, random for each run unless ISLAM_DEVICE_ID is set
-const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[n % 62]).join("");
+export const randomDeviceId = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[n % 62]).join("");
 // made on first use, not when the file loads: Workers do not allow random values in the global scope
 let defaultId;
-export const defaultDeviceId = () => (defaultId ??= ENV.ISLAM_DEVICE_ID ?? randomId());
+export const defaultDeviceId = () => (defaultId ??= ENV.ISLAM_DEVICE_ID ?? randomDeviceId());
 
 /** POST a question; resolves to the shareId of its answer stream. */
 export async function ask(question, { deviceId = defaultDeviceId(), baseUrl = BASE_URL, signal } = {}) {

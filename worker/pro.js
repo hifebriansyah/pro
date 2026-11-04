@@ -74,11 +74,17 @@ export default {
     const ac = new AbortController();
     const send = (ev) => writer.write(enc.encode(`data: ${JSON.stringify(ev)}\n\n`)).catch(() => ac.abort());  // nobody is reading any more: stop working
     ctx.waitUntil((async () => {
-      const summary = await runAgent(body, { send, signal: ac.signal, env, skills: skillsFromList(SKILLS), timeZone: env.TIMEZONE });
-      logLine(env, ctx, {
-        ...who, kind: "agent", agent: /You are (\w+)/.exec(body.persona)?.[1], message: body.message.slice(0, 500) || undefined,
-        ...summary, ms: Date.now() - started,
-      });
+      // A long answer is quiet for tens of seconds between its parts: a comment line now and then (the page ignores it) keeps the connection from being closed as idle.
+      const ping = setInterval(() => writer.write(enc.encode(": ping\n\n")).catch(() => ac.abort()), Number(env.KEEPALIVE_MS) || 15_000);
+      try {
+        const summary = await runAgent(body, { send, signal: ac.signal, env, skills: skillsFromList(SKILLS), timeZone: env.TIMEZONE });
+        logLine(env, ctx, {
+          ...who, kind: "agent", agent: /You are (\w+)/.exec(body.persona)?.[1], message: body.message.slice(0, 500) || undefined,
+          ...summary, ms: Date.now() - started,
+        });
+      } finally {
+        clearInterval(ping);
+      }
       await writer.close().catch(() => {});
     })());
     return new Response(readable, { headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });

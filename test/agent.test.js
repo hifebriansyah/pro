@@ -228,3 +228,9 @@ test("the repo ships a mockup-html skill whose trigger words do not overlap writ
   const w = skills.get("writing-md");
   assert.deepEqual(k.triggers.filter((t) => w.triggers.includes(t)), []); // one message should not preload both
 });
+
+test("extractDocuments: a document that ends inside a code fence gets the fence closed; balanced fences are left alone", () => {
+  assert.equal(extractDocuments('<document title="K">\n# K\n```js\nlet a = 1;\n</document>').documents[0].markdown, "# K\n```js\nlet a = 1;\n```");
+  assert.equal(extractDocuments('<document title="K">\n# K\n```js\nlet a = 1;\n```\nakhir\n</document>').documents[0].markdown, "# K\n```js\nlet a = 1;\n```\nakhir");
+  assert.equal(extractDocuments('<document title="K">\n# K\n```js\nlet a = 1;').documents[0].markdown, "# K\n```js\nlet a = 1;\n```"); // cut off
+});
