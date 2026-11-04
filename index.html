@@ -580,37 +580,37 @@ const isSvg = (html) => /^\s*<svg[\s>]/i.test(html);
 // </svg-detect>
 
 // <mockup-frame>
-// The AI's HTML never runs in this page: it is drawn in an iframe. An HTML mockup may run its own inline scripts (a clock, a theme toggle,
-// tabs), but the sandbox does not grant same-origin, so the frame is an opaque origin that cannot reach this page, its storage or cookies, and the
-// content security policy allows inline scripts and styles and data: pictures only, so the page cannot load code or send anything anywhere
-// (no network, no frames, no forms, no popups). A logo or icon (SVG) gets no scripts at all. Frames, objects, <base>, <link>, meta refresh
-// (the one thing a sandbox does not stop: it would send the frame to another site) and external scripts are removed as a second line.
-const MOCKUP_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'";
-const MOCKUP_CSP_SCRIPTS = MOCKUP_CSP + "; script-src 'unsafe-inline'";
+// The AI's HTML never runs in this page: it is drawn in an iframe, and inside that frame it can run anything: scripts, libraries, fonts and pictures
+// from the internet, fetch to any API, forms, popups, dialogs, downloads, embedded frames, fullscreen. What it cannot do is reach this page. The sandbox
+// does not grant same-origin (the frame is an opaque origin: no access to this page, the chats, their storage or cookies), top navigation, or camera,
+// microphone and location. A real localStorage does not exist in such a frame, so storageShim stands in: the mockup's data is kept in memory and
+// the page saves it for that mockup. A logo or icon (SVG) is the exception: no scripts at all and a strict policy, it never needs them.
+const MOCKUP_SANDBOX = "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-pointer-lock";
+const MOCKUP_ALLOW = "fullscreen; autoplay; clipboard-write; picture-in-picture";
+const MOCKUP_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'"; // SVG only
 const SVG_BG = {
   light: "background:#fff",
   dark: "background:#171920",
   checker: "background:#fff conic-gradient(#e5e7eb 25%, transparent 0 50%, #e5e7eb 0 75%, transparent 0) 0 0 / 20px 20px", // transparency shows as a chequerboard
 };
-function frameHtml(html, bg = "light") {
-  const svg = /^\s*<svg[\s>]/i.test(html);
-  let safe = html
-    .replace(/<\/?(?:iframe|frame|frameset|object|embed|applet|base|link)\b[^>]*>/gi, "")
-    .replace(/<meta\b[^>]*http-equiv[^>]*>/gi, "")
-    .replace(/<script\b[^>]*\ssrc\s*=[^>]*>[\s\S]*?<\/script\s*>/gi, "")   // no external scripts (the policy blocks them too)
-    .replace(/<script\b[^>]*\ssrc\s*=[^>]*>/gi, "");
-  if (svg) { // a logo, an icon, an illustration: no code at all
-    safe = safe.replace(/<script\b[\s\S]*?<\/script\s*>/gi, "").replace(/<script\b[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  }
-  const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${svg ? MOCKUP_CSP : MOCKUP_CSP_SCRIPTS}"><base target="_blank">`;
-  if (svg) { // a logo, an icon, an illustration: centred on a background the page picks (never the model)
+// localStorage and sessionStorage throw in a frame without same-origin: stand-ins with the same methods. localStorage starts with what the page saved
+// for this mockup and tells the page about every change (postMessage); sessionStorage lives in memory.
+const storageShim = (data) => `<script>(function(){var d=${JSON.stringify(data).replace(/</g, "\\u003c")},s={};function mk(m,t){var tell=function(){if(m)parent.postMessage({mockupStorage:t},"*")};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(t,k)?t[k]:null},setItem:function(k,v){t[k]=String(v);tell()},removeItem:function(k){delete t[k];tell()},clear:function(){for(var k in t)delete t[k];tell()},key:function(i){var k=Object.keys(t)[i];return k===undefined?null:k},get length(){return Object.keys(t).length}}}try{Object.defineProperty(window,"localStorage",{value:mk(1,d),configurable:true});Object.defineProperty(window,"sessionStorage",{value:mk(0,s),configurable:true})}catch(e){}})()<\/script>`;
+function frameHtml(html, bg = "light", storage = {}) {
+  if (/^\s*<svg[\s>]/i.test(html)) { // a logo, an icon, an illustration: centred on a background the page picks (never the model), no code at all
+    const safe = html
+      .replace(/<\/?(?:iframe|frame|frameset|object|embed|applet|base|link)\b[^>]*>/gi, "")
+      .replace(/<meta\b[^>]*http-equiv[^>]*>/gi, "")
+      .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "").replace(/<script\b[^>]*>/gi, "")
+      .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
     const css = `html,body{margin:0;height:100%}body{display:grid;place-items:center;${SVG_BG[bg] ?? SVG_BG.light}}svg{max-width:100%;max-height:100%}`;
-    return `<!doctype html><html><head>${head}<style>${css}</style></head><body>${safe}</body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${MOCKUP_CSP}"><base target="_blank"><style>${css}</style></head><body>${safe}</body></html>`;
   }
-  const doctype = /^\s*<!doctype/i.test(safe) ? "" : "<!doctype html>";
-  if (/<head[\s>]/i.test(safe)) return doctype + safe.replace(/<head[^>]*>/i, (m) => m + head);
-  if (/<html[\s>]/i.test(safe)) return doctype + safe.replace(/<html[^>]*>/i, (m) => m + "<head>" + head + "</head>");
-  return `<!doctype html><html><head>${head}<meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${safe}</body></html>`;
+  const head = `<meta charset="utf-8"><base target="_blank">${storageShim(storage)}`; // links open in a new tab; the storage stand-in runs before the page's own scripts
+  const doctype = /^\s*<!doctype/i.test(html) ? "" : "<!doctype html>";
+  if (/<head[\s>]/i.test(html)) return doctype + html.replace(/<head[^>]*>/i, (m) => m + head);
+  if (/<html[\s>]/i.test(html)) return doctype + html.replace(/<html[^>]*>/i, (m) => m + "<head>" + head + "</head>");
+  return `<!doctype html><html><head>${head}<meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${html}</body></html>`;
 }
 // </mockup-frame>
 
@@ -623,15 +623,35 @@ const ICON_FILE_TEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15
 const ICON_LAYOUT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg>';
 const slug = (t, fallback) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback;
 
+// what a mockup saved with localStorage: kept in this page's own storage, one entry per mockup (named by a hash of its HTML), and only what the frame that is showing it sends
+let mockFrame = null, mockKey = "";
+function mockStoreKey(html) { let h = 5381; for (let i = 0; i < html.length; i++) h = ((h << 5) + h + html.charCodeAt(i)) | 0; return "islam-chat:mockup-storage:" + (h >>> 0).toString(36); }
+function loadMockStorage() {
+  try { const o = JSON.parse(localStorage.getItem(mockKey) || "{}"); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch { return {}; }
+}
+addEventListener("message", (e) => {
+  if (!mockFrame || e.source !== mockFrame.contentWindow) return; // only the frame on screen
+  const d = e.data?.mockupStorage;
+  if (!d || typeof d !== "object" || Array.isArray(d)) return;
+  const clean = {};
+  for (const [k, v] of Object.entries(d)) if (typeof v === "string") clean[k] = v;
+  const json = JSON.stringify(clean);
+  if (json.length > 100_000) return; // a mockup cannot fill the storage
+  try { localStorage.setItem(mockKey, json); } catch {}
+});
+
 function renderMock() {
   const body = $("mock-body");
   body.replaceChildren();
   if (mockTab === "code") { body.append(el("pre", "mock-code", docView.html)); return; }
   const frame = el("iframe");
-  frame.setAttribute("sandbox", docView.svg || isSvg(docView.html) ? "" : "allow-scripts"); // scripts only for an HTML mockup, never same-origin
+  const svg = docView.svg || isSvg(docView.html);
+  frame.setAttribute("sandbox", svg ? "" : MOCKUP_SANDBOX); // an HTML mockup runs anything but reaches nothing of this page; an SVG runs nothing
+  if (!svg) frame.allow = MOCKUP_ALLOW;
   frame.referrerPolicy = "no-referrer";
   frame.title = docView.title;
-  frame.srcdoc = frameHtml(docView.html, mockBg);
+  mockFrame = frame; mockKey = mockStoreKey(docView.html);
+  frame.srcdoc = frameHtml(docView.html, mockBg, loadMockStorage());
   if (mockWidth && !docView.svg) frame.style.width = mockWidth + "px";
   const stage = el("div", "mock-stage");
   stage.append(frame);

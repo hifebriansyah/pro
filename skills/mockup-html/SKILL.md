@@ -32,16 +32,19 @@ If the user also asks for something written (a PRD, notes), a `<document>` can g
 Put one `<svg>` and nothing else inside the `<mockup>` tag. The page draws it centred, with a switch for a light, dark or chequered background, and the user can copy it or download an `.svg` file.
 
 - Start with `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H">` (a square such as `0 0 200 200` for a logo or icon). Draw with flat shapes: `path`, `circle`, `rect`; gradients with `linearGradient`; cut-outs with a `mask` or by shape. Text is only for a wordmark and uses a system font stack, or is better drawn as shapes.
-- No scripts, no external references (`href` to a file or address) and no web fonts: they are removed or blocked. Only inline shapes and `data:` pictures work.
+- No scripts and no external references (`href` to a file or address): keep it to inline shapes, gradients and `data:` pictures.
 - You cannot see your SVG, so check the geometry in your head and say what you checked: radii and stroke widths that overlap or leave a gap, contrast against a light and a dark background, whether it still reads at 16 and 32 pixels (thin strokes vanish), and keep one idea and two or three colours.
 - If the user pastes SVG code, the page already shows them a preview of it; review the design from the code (geometry, contrast, small sizes, wasted shapes) and offer a revised version.
 - Add as much detail as the design needs: no length limit.
 
 ## What the preview allows (the page runs it in a sandbox)
 
-- **Inline JavaScript works.** Write one `<script>` at the end of the `<body>` (or inline handlers such as `onclick`) and the page runs it: a live clock (`Date`, `Intl.DateTimeFormat`, `setInterval`), a dark and light theme toggle, tabs, a form that validates, a calculator, sorting and filtering a list. Build the working controls the user asked for; do not leave them as pictures.
-- **But it is sandboxed.** No network (`fetch`, XHR, WebSocket and external `<script src>`, CDNs, web fonts, stylesheets and images by address all fail), no `localStorage`, `sessionStorage` or cookies, no popups or navigation, no forms that submit. Keep it self-contained: one `<style>`, one `<script>`, a system font stack, icons and pictures as inline SVG or CSS shapes and gradients, `data:` pictures, links as `<a href="#">`. Keep state in plain variables.
-- A logo or icon (an `<svg>` alone) gets no scripts at all.
+**It runs everything you build.** The preview is a real browser frame: write a working page, not a picture.
+
+- **JavaScript** (inline `<script>`, handlers such as `onclick`), any **library from a CDN** with a pinned version (for example `<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>`: three.js, Chart.js, Alpine, GSAP, Leaflet...; put the library before the script that uses it), **web fonts and stylesheets** by address (Google Fonts), **pictures** by address, **`fetch`** to public APIs, embedded frames (YouTube, maps), forms, popups, dialogs, downloads, fullscreen, WebGL and canvas.
+- **`localStorage` and `sessionStorage` work**: what a mockup saves with `localStorage` is kept for that mockup in the user's browser, so a to-do list or a saved theme survives a reload.
+- **What is not there:** cookies, IndexedDB, camera, microphone and location, and anything that reaches the chat page around it (the frame is isolated from it). Pages that need a server of their own (a login, a database) can only show sample data.
+- A logo or icon (an `<svg>` alone) is drawn without scripts.
 
 ## How to build it well
 
