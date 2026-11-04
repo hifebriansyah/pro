@@ -82,7 +82,6 @@ export function extractDocuments(reply) {
   return { text: text.replace(/\n{3,}/g, "\n\n").trim(), documents };
 }
 
-const MOCKUP_CHARS = 120_000;
 /** The model sometimes wraps the HTML in a ```html fence inside the tag: take the fence off. */
 const unfence = (html) => html.trim().replace(/^```(?:html)?[ \t]*\n?/i, "").replace(/\n?```[ \t]*$/, "").trim();
 
@@ -93,7 +92,7 @@ const unfence = (html) => html.trim().replace(/^```(?:html)?[ \t]*\n?/i, "").rep
 export function extractMockups(reply) {
   const mockups = [];
   const text = reply.replace(/<mockup(?:\s+title="([^"]*)")?\s*>([\s\S]*?)(?:<\/mockup>|$)/g, (_, title, body) => {
-    const html = unfence(body).slice(0, MOCKUP_CHARS);
+    const html = unfence(body);
     if (html) mockups.push({ title: (title ?? /<title>([^<]*)<\/title>/i.exec(html)?.[1] ?? "Mockup").trim().slice(0, 120), html });
     return "";
   });
@@ -153,7 +152,7 @@ export async function agentChat(question, { onChunk, onTool, onToolStart, onDocu
   for (let step = 0; ; step++) {
     // After a tool result the persona is far above in the prompt and the model drifts into a generic assistant, so restate it last.
     const tail = exchanges.length
-      ? `\n\n${persona ? `Stay in character, exactly as described above:\n${persona}\n\n${skills.size ? "(If you loaded a skill, its output format overrides the persona's formatting rules for that output: e.g. a <document> may use headings, lists and tables. Your chat sentences stay in the persona's voice.)\n\n" : ""}` : ""}${step >= maxSteps ? "Now answer the user's question in full, without another tool call." : "Now answer the user's question, or call another tool."}`
+      ? `\n\n${persona ? `Stay in character, exactly as described above:\n${persona}\n\n${skills.size ? "(If you loaded a skill, its output format overrides the persona's formatting rules for that output: e.g. a <document> may use headings, lists and tables. Your chat sentences stay in the persona's voice.)\n\n" : ""}` : ""}${skills.size ? "The persona's short-reply rules are only for your chat sentences. A <mockup> or <document> is the deliverable: write it complete, full length and richly detailed (every section, real content, no shortening, no limit), following the skill, in the language of the user's newest message.\n\n" : ""}${step >= maxSteps ? "Now answer the user's question in full, without another tool call." : "Now answer the user's question, or call another tool."}`
       : "";
     // The reply may be a tool call with chatter around it ("Sebentar ya...\nTOOL: {...}"), so hold the whole
     // reply and show it only once we know it is the final answer.

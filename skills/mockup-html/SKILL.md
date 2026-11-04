@@ -1,7 +1,7 @@
 ---
 name: mockup-html
 description: Design a web or app screen as a working HTML and CSS mockup, or a logo, icon or illustration as an SVG, and the page draws it in a sandboxed preview panel (phone, tablet and desktop widths, or light, dark and chequered backgrounds). Use when the user asks for a mockup, wireframe, prototype, landing page, screen layout, logo, icon or SVG.
-triggers: mockup, mock-up, mock up, wireframe, prototype, prototipe, landing page, desain layar, desain halaman, rancangan tampilan, tampilan halaman, logo, svg, ikon, icon, ilustrasi, illustration
+triggers: mockup, mock-up, mock up, wireframe, prototype, prototipe, landing page, desain layar, desain halaman, rancangan tampilan, tampilan halaman, logo, svg, ikon, icon, ilustrasi, illustration, website, situs, web, aplikasi, app, dashboard, halaman, page, desain, design, tampilan, layout, antarmuka, ui, ux, form, formulir
 ---
 
 # Designing a mockup as HTML, or a logo as SVG
@@ -23,7 +23,7 @@ Use this when the user wants to see a screen, a page, a logo or an icon, not rea
 </html>
 </mockup>
 
-One mockup per reply: one screen, or one landing page. Nothing but the HTML goes inside the tag. Never put the tag inside a code block. The page shows it on the right with Preview and Code tabs.
+One mockup per reply: one screen, or one whole page. Nothing but the HTML goes inside the tag. Never put the tag inside a code block. The page shows it on the right with Preview and Code tabs.
 
 If the user also asks for something written (a PRD, notes), a `<document>` can go in the same reply next to the `<mockup>`. For a mockup request, the reply carries a `<mockup>`, not only a document.
 
@@ -35,7 +35,7 @@ Put one `<svg>` and nothing else inside the `<mockup>` tag. The page draws it ce
 - No scripts, no external references (`href` to a file or address) and no web fonts: they are removed or blocked. Only inline shapes and `data:` pictures work.
 - You cannot see your SVG, so check the geometry in your head and say what you checked: radii and stroke widths that overlap or leave a gap, contrast against a light and a dark background, whether it still reads at 16 and 32 pixels (thin strokes vanish), and keep one idea and two or three colours.
 - If the user pastes SVG code, the page already shows them a preview of it; review the design from the code (geometry, contrast, small sizes, wasted shapes) and offer a revised version.
-- Keep it under about 2,000 characters.
+- Add as much detail as the design needs: no length limit.
 
 ## What the preview allows (the page runs it in a sandbox)
 
@@ -51,5 +51,7 @@ Put one `<svg>` and nothing else inside the `<mockup>` tag. The page draws it ce
 - **Believable content.** Real wording in the user's language, real-looking names, prices and dates. No lorem ipsum, no "Button", no "Title here".
 - **The states that matter.** Show the most important one besides the happy path: a form with an error message, an empty list, or loading skeletons.
 - **Pictures.** Use CSS gradient blocks or simple inline SVG; avatars as circles with initials.
-- **Size.** A quick mockup stays under about 3,500 characters, CSS included: compact CSS (short class names, shared rules, no comments, only what is used), 3 to 5 items in any list. When the user asks for a richer page, several sections or a full landing page, up to about 12,000 characters is fine: if your answer is cut off you will be asked to carry on from the last character, so write the `<style>` first, keep going, never start over, and finish with `</html>` and `</mockup>`. Simple and clean beats elaborate.
+- **No size limit. Make it complete and rich.** Aim for at least 250 lines of HTML and CSS together (well over 8,000 characters) for a website or app screen, and more when the page needs it. Build the whole page the user asked for, not a sketch: every section a real version of that page has (for a website: header with navigation, hero, the main feature working as far as CSS can show it, several content sections, footer), several realistic items in each list, and polished styling (spacing, colours, hover and focus states, responsive rules). A request that says "lengkap", "complete", "full" or names a whole website or app means a full page, never a few lines. Never shorten, summarise or leave a part as "..." to save space. If your answer is cut off you will be asked to carry on from the last character: write the `<style>` first, keep going, never start over, and finish with `</html>` and `</mockup>`.
+- **Controls that work without JavaScript.** Scripts are blocked, but CSS can still do a lot: a dark and light theme toggle with a hidden checkbox and `:has()` (for example `body:has(#theme:checked) { --bg: #0f172a; ... }`) or radio buttons, tabs and switches with radio inputs, accordions with `<details>`, hover and focus effects. Use them so the buttons and toggles the user asked for really respond. Where something needs real logic (a live clock, a calculation), show believable sample values.
+- **Language.** Write the chat reply and all text on the page in the language of the user's newest message.
 - **Finish the page.** The HTML must be complete: it starts with `<!doctype html>`, every tag is closed, and it ends with `</html>`. Write the `<style>` first and keep it short, so there is room for the whole body.

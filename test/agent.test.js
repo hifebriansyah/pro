@@ -201,7 +201,7 @@ test("extractMockups: title attr, <title> fallback, code fence inside the tag, a
   assert.equal(extractMockups(`<mockup title="x">\n\`\`\`html\n${html}\n\`\`\`\n</mockup>`).mockups[0].html, html); // fence taken off
   assert.equal(extractMockups('<mockup title="x"><html><body><p>terpotong').mockups[0].html, "<html><body><p>terpotong"); // cut off: takes the rest
   assert.deepEqual(extractMockups("halo"), { text: "halo", mockups: [] });
-  assert.equal(extractMockups(`<mockup title="x">${"a".repeat(200_000)}</mockup>`).mockups[0].html.length, 120_000); // capped
+  assert.equal(extractMockups(`<mockup title="x">${"a".repeat(200_000)}</mockup>`).mockups[0].html.length, 200_000); // a mockup is never cut short
 });
 
 test("agentChat: a mockup and a document in one reply are both emitted, and the chat text stays clean", async () => {
