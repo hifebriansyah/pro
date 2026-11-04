@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>try { var t = localStorage.getItem("islam-chat:theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {} /* the saved light/dark choice, before the first paint: no flash of the other theme */</script>
 <title>Pro</title>
 <meta name="description" content="Chat with AI professionals for software houses and social media">
 <link rel="canonical" href="https://pro.situs.id/">
@@ -34,18 +35,29 @@
      in light mode and lighter in dark mode so they stay readable on the panels and bubbles. Pairs checked for WCAG contrast:
      text 4.5:1 on every surface, muted text 4.5:1 or more, links 4.5:1, on-accent 8:1. */
   :root {
+    color-scheme: light;
     --bg: #e7e2da; --panel: #ffffff; --panel-2: #f7f3ec; --line: #e9e2d6; --text: #1c1917; --muted: #655e58;
     --accent: #f59e0b; --on-accent: #1c1917; --ink: #b45309; --link: #92400e;
     --out: #fadf8f; --in: #ffffff; --chat-bg: #f6efe3; --hover: #faf6ef; --active: #f1eadf; --danger: #c81e1e;
     --shadow: rgba(28, 25, 23, .13); --thumb: rgba(120, 113, 108, .5); --thumb-hover: rgba(120, 113, 108, .8); --dots: rgba(120, 113, 108, .08);
   }
+  /* Light is the default; dark follows the system setting unless the user chose light, and a chosen dark applies always (the button in the header sets
+     data-theme on <html>, and the script in <head> restores it). The dark set is written twice because CSS cannot share it: a test keeps them identical. */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #0c0a09; --panel: #1c1917; --panel-2: #292524; --line: #3a3532; --text: #fafaf9; --muted: #a8a29e;
       --accent: #f59e0b; --on-accent: #1c1917; --ink: #fbbf24; --link: #fbbf24;
       --out: #512409; --in: #292524; --chat-bg: #14110f; --hover: #26211f; --active: #342e2b; --danger: #f87171;
       --shadow: rgba(0, 0, 0, .35); --thumb: rgba(168, 162, 158, .45); --thumb-hover: rgba(168, 162, 158, .75); --dots: rgba(168, 162, 158, .06);
     }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0c0a09; --panel: #1c1917; --panel-2: #292524; --line: #3a3532; --text: #fafaf9; --muted: #a8a29e;
+    --accent: #f59e0b; --on-accent: #1c1917; --ink: #fbbf24; --link: #fbbf24;
+    --out: #512409; --in: #292524; --chat-bg: #14110f; --hover: #26211f; --active: #342e2b; --danger: #f87171;
+    --shadow: rgba(0, 0, 0, .35); --thumb: rgba(168, 162, 158, .45); --thumb-hover: rgba(168, 162, 158, .75); --dots: rgba(168, 162, 158, .06);
   }
   ::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); }
   textarea, input { caret-color: var(--accent); }
@@ -201,6 +213,7 @@
   <aside class="side">
     <header>
       <h1>Chat</h1>
+      <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema"></button>
     </header>
     <div class="search"><input id="q" placeholder="Cari percakapan" autocomplete="off"></div>
     <div class="list" id="list"></div>
@@ -801,6 +814,32 @@ $("del").onclick = () => {
 $("form").onsubmit = (e) => { e.preventDefault(); const v = $("input").value; $("input").value = ""; $("input").style.height = ""; sendMessage(v); };
 $("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("form").requestSubmit(); } };
 $("input").oninput = (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; };
+
+// <theme>
+// Light or dark: the system setting until the button is tapped, then the choice is remembered (the script in <head> reads the same key).
+const THEME_KEY = "islam-chat:theme";
+const ICON_SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+const ICON_MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+const THEME_COLOR = { light: "#f7f3ec", dark: "#292524" }; // the headers' colour, for the browser's address bar
+const systemDark = matchMedia("(prefers-color-scheme: dark)");
+const effectiveTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? "dark" : "light");
+function paintTheme() {
+  const dark = effectiveTheme() === "dark", chosen = document.documentElement.dataset.theme;
+  $("theme").innerHTML = dark ? ICON_SUN : ICON_MOON; // constant markup: the icon shows what a tap switches to
+  $("theme").title = dark ? "Ganti ke tema terang" : "Ganti ke tema gelap";
+  $("theme").setAttribute("aria-label", $("theme").title);
+  // the two theme-color tags are for the system setting; a chosen theme sets both to its colour
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = THEME_COLOR[chosen ?? (/dark/.test(m.getAttribute("media")) ? "dark" : "light")];
+}
+$("theme").onclick = () => {
+  const next = effectiveTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(THEME_KEY, next); } catch {}
+  paintTheme();
+};
+systemDark.addEventListener?.("change", paintTheme);
+paintTheme();
+// </theme>
 
 if (!chatById(state.current)) state.current = null;
 renderList(); renderChat();

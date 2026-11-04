@@ -78,6 +78,8 @@ Each professional has a photo, `personas/<name>.jpg` (256x256), shown round in t
 
 The page colours are still amber on warm stone greys (they came from faith's logo, not from this one), as CSS variables at the top of `index.html`, a light set and a dark set (it follows the system setting). Contrast was checked (text 4.5:1 or more on every surface and bubble). Use the variables, not hex values, in new CSS.
 
+**Light / dark:** the page follows the system setting. The sun / moon button in the header (next to "Chat") switches it by hand, and the choice is remembered in `localStorage` (`islam-chat:theme`). A small script in `<head>` applies a saved choice before the first paint, so there is no flash of the other theme; `data-theme="light"|"dark"` on `<html>` is what the CSS reads, and the browser's address-bar colour follows. The dark colours are written twice in the CSS (once for the system setting, once for a chosen dark theme): `test/theme.test.js` fails if the two copies differ.
+
 ## Develop
 
 ```bash
