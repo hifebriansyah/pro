@@ -236,6 +236,11 @@
         <button type="button" data-tab="preview" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
         <button type="button" data-tab="code"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Kode</button>
       </div>
+      <div class="seg hidden" id="mock-bg">
+        <button type="button" data-bg="light" class="on" title="Latar terang">Terang</button>
+        <button type="button" data-bg="dark" title="Latar gelap">Gelap</button>
+        <button type="button" data-bg="checker" title="Kotak-kotak: transparan terlihat">Kotak</button>
+      </div>
       <div class="seg" id="mock-devices">
         <button type="button" data-w="390" title="Ponsel (390 px)" aria-label="Ponsel"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></button>
         <button type="button" data-w="768" title="Tablet (768 px)" aria-label="Tablet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg></button>
@@ -540,12 +545,29 @@ function picture(i) {
   return b;
 }
 
+// <svg-detect>
+// An <svg>...</svg> in any message (yours or the AI's, in a code fence or not) gets a preview card. A mention like `<svg>` in prose does not:
+// the block must hold a shape, text or a viewBox.
+const SVG_BLOCK = /<svg\b[^>]*>[\s\S]*?<\/svg\s*>/gi;
+function extractSvgs(text) {
+  return (String(text).match(SVG_BLOCK) ?? [])
+    .filter((g) => /<(?:path|circle|rect|ellipse|line|polyline|polygon|text|g|image|use)\b/i.test(g) || /viewBox\s*=/i.test(g))
+    .map((g) => g.slice(0, 120000));
+}
+const isSvg = (html) => /^\s*<svg[\s>]/i.test(html);
+// </svg-detect>
+
 // <mockup-frame>
 // The AI's HTML never runs in this page: it is drawn in an iframe with an empty sandbox (no scripts, no forms, no same-origin) and a
 // content security policy that allows inline styles and data: pictures only. These replacements are a second line: script, frames, meta
 // refresh (the one thing a sandbox does not stop: it would send the frame to another site), event handlers and <base> are removed.
 const MOCKUP_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'";
-function frameHtml(html) {
+const SVG_BG = {
+  light: "background:#fff",
+  dark: "background:#171920",
+  checker: "background:#fff conic-gradient(#e5e7eb 25%, transparent 0 50%, #e5e7eb 0 75%, transparent 0) 0 0 / 20px 20px", // transparency shows as a chequerboard
+};
+function frameHtml(html, bg = "light") {
   const safe = html
     .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
     .replace(/<script\b[^>]*>/gi, "")
@@ -553,6 +575,10 @@ function frameHtml(html) {
     .replace(/<meta\b[^>]*http-equiv[^>]*>/gi, "")
     .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
   const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${MOCKUP_CSP}"><base target="_blank">`;
+  if (/^\s*<svg[\s>]/i.test(safe)) { // a logo, an icon, an illustration: centred on a background the page picks (never the model)
+    const css = `html,body{margin:0;height:100%}body{display:grid;place-items:center;${SVG_BG[bg] ?? SVG_BG.light}}svg{max-width:100%;max-height:100%}`;
+    return `<!doctype html><html><head>${head}<style>${css}</style></head><body>${safe}</body></html>`;
+  }
   const doctype = /^\s*<!doctype/i.test(safe) ? "" : "<!doctype html>";
   if (/<head[\s>]/i.test(safe)) return doctype + safe.replace(/<head[^>]*>/i, (m) => m + head);
   if (/<html[\s>]/i.test(safe)) return doctype + safe.replace(/<html[^>]*>/i, (m) => m + "<head>" + head + "</head>");
@@ -563,7 +589,8 @@ function frameHtml(html) {
 // the panel on the right shows one thing the AI made: a Markdown document, or an HTML mockup (Preview / Code, phone / tablet / desktop
 // width); a card in the chat reopens it
 let docView = null; // { kind: "doc", title, markdown } or { kind: "mockup", title, html }
-let mockTab = "preview", mockWidth = 0;
+let mockTab = "preview", mockWidth = 0, mockBg = "light";
+const svgDoc = (g) => ({ kind: "mockup", svg: true, title: (/<title>([^<]*)<\/title>/i.exec(g)?.[1] ?? "Gambar SVG").trim().slice(0, 120), html: g });
 const ICON_FILE_TEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
 const ICON_LAYOUT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg>';
 const slug = (t, fallback) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback;
@@ -576,8 +603,8 @@ function renderMock() {
   frame.setAttribute("sandbox", ""); // nothing allowed
   frame.referrerPolicy = "no-referrer";
   frame.title = docView.title;
-  frame.srcdoc = frameHtml(docView.html);
-  if (mockWidth) frame.style.width = mockWidth + "px";
+  frame.srcdoc = frameHtml(docView.html, mockBg);
+  if (mockWidth && !docView.svg) frame.style.width = mockWidth + "px";
   const stage = el("div", "mock-stage");
   stage.append(frame);
   body.append(stage);
@@ -585,7 +612,9 @@ function renderMock() {
 function paintTools() {
   for (const b of $("mock-tabs").children) b.classList.toggle("on", b.dataset.tab === mockTab);
   for (const b of $("mock-devices").children) b.classList.toggle("on", Number(b.dataset.w) === mockWidth);
-  $("mock-devices").classList.toggle("hidden", mockTab === "code");
+  for (const b of $("mock-bg").children) b.classList.toggle("on", b.dataset.bg === mockBg);
+  $("mock-devices").classList.toggle("hidden", mockTab === "code" || !!docView.svg);
+  $("mock-bg").classList.toggle("hidden", mockTab === "code" || !docView.svg);
 }
 function renderDoc() {
   $("doc").classList.toggle("hidden", !docView);
@@ -597,21 +626,21 @@ function renderDoc() {
   $("doc-body").classList.toggle("hidden", mock);
   $("mock-body").classList.toggle("hidden", !mock);
   $("doc-title").textContent = docView.title;
-  $("doc-kind").textContent = mock ? "Mockup HTML" : "Markdown";
-  $("doc-copy").title = mock ? "Salin HTML" : "Salin Markdown";
-  $("doc-dl").title = mock ? "Unduh .html" : "Unduh .md";
+  $("doc-kind").textContent = !mock ? "Markdown" : docView.svg ? "SVG" : "Mockup HTML";
+  $("doc-copy").title = !mock ? "Salin Markdown" : docView.svg ? "Salin SVG" : "Salin HTML";
+  $("doc-dl").title = !mock ? "Unduh .md" : docView.svg ? "Unduh .svg" : "Unduh .html";
   if (mock) { paintTools(); renderMock(); return; }
   $("doc-body").replaceChildren(renderMarkdown(docView.markdown));
   $("doc-body").scrollTop = 0;
 }
-const openDoc = (d) => { docView = d; if (d.kind === "mockup") { mockTab = "preview"; mockWidth = 0; } renderDoc(); };
+const openDoc = (d) => { docView = d; if (d.kind === "mockup") { d.svg ??= isSvg(d.html); mockTab = "preview"; mockWidth = 0; mockBg = "light"; } renderDoc(); };
 const closeDoc = () => { docView = null; $("mock-body").replaceChildren(); renderDoc(); }; // an emptied panel also stops a running preview
 function docCard(d) {
   const mock = d.kind === "mockup";
   const b = el("button", "bubble in cont card");
   b.type = "button";
   b.insertAdjacentHTML("afterbegin", mock ? ICON_LAYOUT : ICON_FILE_TEXT); // constant markup
-  const t = el("div"); t.append(el("b", null, d.title), el("span", null, mock ? "Buka mockup" : "Buka dokumen"));
+  const t = el("div"); t.append(el("b", null, d.title), el("span", null, !mock ? "Buka dokumen" : d.svg || isSvg(d.html) ? "Pratinjau SVG" : "Buka mockup"));
   b.append(t);
   b.onclick = () => openDoc(d);
   return b;
@@ -636,6 +665,7 @@ function renderChat() {
     const d = dayLabel(m.t);
     if (d !== day) { day = d; box.append(el("div", "day", d)); }
     box.append(...bubbles(m));
+    for (const g of extractSvgs(m.text)) box.append(docCard(svgDoc(g)));
     for (const i of m.images ?? []) box.append(picture(i));
     for (const d of m.docs ?? []) box.append(docCard({ kind: "doc", ...d }));
     for (const k of m.mockups ?? []) box.append(docCard({ kind: "mockup", ...k }));
@@ -732,6 +762,8 @@ async function sendMessage(text) {
   }
   delete reply.pending;
   delete reply.status;
+  const drawn = reply.error ? [] : extractSvgs(reply.text);
+  if (drawn.length && !reply.mockups?.length && state.current === c.id) openDoc(svgDoc(drawn[0])); // an SVG written straight into the answer is shown too
   reply.t = Date.now();
   c.updated = reply.t;
   busy.delete(c.id);
@@ -744,14 +776,15 @@ $("doc-copy").onclick = async () => {
   try { await navigator.clipboard.writeText(text); $("doc-copy").title = "Tersalin ✓"; setTimeout(() => ($("doc-copy").title = label), 1500); } catch {}
 };
 $("doc-dl").onclick = () => {
-  const mock = docView.kind === "mockup";
+  const mock = docView.kind === "mockup", svg = !!docView.svg;
   const a = el("a");
-  a.href = URL.createObjectURL(new Blob([mock ? docView.html : docView.markdown], { type: mock ? "text/html" : "text/markdown" }));
-  a.download = slug(docView.title, mock ? "mockup" : "dokumen") + (mock ? ".html" : ".md");
+  a.href = URL.createObjectURL(new Blob([mock ? docView.html : docView.markdown], { type: svg ? "image/svg+xml" : mock ? "text/html" : "text/markdown" }));
+  a.download = slug(docView.title, svg ? "gambar" : mock ? "mockup" : "dokumen") + (svg ? ".svg" : mock ? ".html" : ".md");
   a.click();
   URL.revokeObjectURL(a.href);
 };
 $("mock-tabs").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockTab = b.dataset.tab; paintTools(); renderMock(); } };
+$("mock-bg").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.svg) { mockBg = b.dataset.bg; paintTools(); renderMock(); } };
 $("mock-devices").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockWidth = Number(b.dataset.w); paintTools(); renderMock(); } };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
 const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };

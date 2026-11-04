@@ -1,12 +1,14 @@
 ---
 name: mockup-html
-description: Design a web or app screen as a working HTML and CSS mockup that the page shows in a sandboxed preview panel (phone, tablet and desktop widths). Use when the user asks for a mockup, wireframe, prototype, landing page or screen layout.
-triggers: mockup, mock-up, mock up, wireframe, prototype, prototipe, landing page, desain layar, desain halaman, rancangan tampilan, tampilan halaman
+description: Design a web or app screen as a working HTML and CSS mockup, or a logo, icon or illustration as an SVG, and the page draws it in a sandboxed preview panel (phone, tablet and desktop widths, or light, dark and chequered backgrounds). Use when the user asks for a mockup, wireframe, prototype, landing page, screen layout, logo, icon or SVG.
+triggers: mockup, mock-up, mock up, wireframe, prototype, prototipe, landing page, desain layar, desain halaman, rancangan tampilan, tampilan halaman, logo, svg, ikon, icon, ilustrasi, illustration
 ---
 
-# Designing a mockup as HTML
+# Designing a mockup as HTML, or a logo as SVG
 
-Use this when the user wants to see a screen or page, not read a description of it.
+Use this when the user wants to see a screen, a page, a logo or an icon, not read a description of it.
+
+**The page you are chatting in draws it for the user.** HTML and SVG written inside the `<mockup>` tag appear in a preview panel next to the chat. So never answer "I cannot render or show this": write it in the tag. What you cannot do is see the result yourself, so say that, and say what to check.
 
 ## How to deliver it
 
@@ -24,6 +26,16 @@ Use this when the user wants to see a screen or page, not read a description of 
 One mockup per reply: one screen, or one landing page. Nothing but the HTML goes inside the tag. Never put the tag inside a code block. The page shows it on the right with Preview and Code tabs.
 
 If the user also asks for something written (a PRD, notes), a `<document>` can go in the same reply next to the `<mockup>`. For a mockup request, the reply carries a `<mockup>`, not only a document.
+
+## A logo, an icon or an illustration (SVG)
+
+Put one `<svg>` and nothing else inside the `<mockup>` tag. The page draws it centred, with a switch for a light, dark or chequered background, and the user can copy it or download an `.svg` file.
+
+- Start with `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H">` (a square such as `0 0 200 200` for a logo or icon). Draw with flat shapes: `path`, `circle`, `rect`; gradients with `linearGradient`; cut-outs with a `mask` or by shape. Text is only for a wordmark and uses a system font stack, or is better drawn as shapes.
+- No scripts, no external references (`href` to a file or address) and no web fonts: they are removed or blocked. Only inline shapes and `data:` pictures work.
+- You cannot see your SVG, so check the geometry in your head and say what you checked: radii and stroke widths that overlap or leave a gap, contrast against a light and a dark background, whether it still reads at 16 and 32 pixels (thin strokes vanish), and keep one idea and two or three colours.
+- If the user pastes SVG code, the page already shows them a preview of it; review the design from the code (geometry, contrast, small sizes, wasted shapes) and offer a revised version.
+- Keep it under about 2,000 characters.
 
 ## What the preview allows (the page runs it in a sandbox)
 
