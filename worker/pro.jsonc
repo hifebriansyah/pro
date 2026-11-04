@@ -9,8 +9,12 @@
   "placement": { "region": "aws:ap-southeast-1" },
   "vars": {
     "ALLOWED_ORIGINS": "https://pro.situs.id,http://localhost,https://localhost,http://127.0.0.1",
-    // Workers run in UTC: "today" in the prompt is this time zone's date.
-    "TIMEZONE": "Asia/Jakarta",
+    // Workers run in UTC: "today" in the prompt is the date at this offset from UTC, in minutes (Jakarta: 420, no daylight saving). A number, not a zone name:
+    // formatting a date for a named time zone costs 10 ms or more of CPU the first time, and the free plan kills a request at about 10 ms.
+    "TIMEZONE_OFFSET_MINUTES": "420",
+    // The request log: "0" is off. It stays off until the dataset below exists in Axiom (your plan's dataset limit was full): every log line is a subrequest,
+    // which costs CPU on a free-plan Worker and would only fail. Create the dataset, then set this to "1" and deploy.
+    "AXIOM_LOG": "0",
     // The request log (secret AXIOM_TOKEN, copied from .env by the deploy): this dataset, in the US region.
     "AXIOM_DATASET": "pro.situs.id",
     "AXIOM_URL": "https://us-east-1.aws.edge.axiom.co"

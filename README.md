@@ -52,6 +52,16 @@ islam-gpt ends an answer after about 5,000 to 7,000 characters, even in the midd
 - **Measured** (the engineer, one request for a complete inventory program in Node): 3 to 4 parts, 85 to 110 seconds, 700 to 780 lines and 19,000 to 24,000 characters through the live Worker, no duplicate declarations, and the code passes `node --check`. It did **not** run cleanly: the example at the bottom calls `inventory.events.on(...)`, which the class does not have. The model cannot run what it writes, so consistency across a long program is not guaranteed: read and run it.
 - **How far it goes:** about 30 seconds a part, so a 6-part answer takes about 3 minutes and gives roughly 25,000 to 30,000 characters, a few hundred to about a thousand lines of code. **Thousands of lines in one request are not possible** this way. For a bigger program, split the work: the engineer proposes the file list first and writes one file per message. A "project mode" that does this by itself and offers a zip is not built yet.
 
+## CPU budget (why a request could fail with "layanan internet tidak bisa dihubungi")
+
+A Cloudflare Worker on the free plan gets about **10 ms of CPU per request** (waiting for islam-gpt does not count, processing does). A request that goes over is killed and the page sees a 503 without CORS headers, which the browser reports as a network or CORS error. This happened to roughly a quarter of the requests (Cloudflare listed them as `exceededResources`, 18 to 46 ms of CPU). Three things were responsible, all invisible in tests because they hit only a cold isolate:
+
+- **The date.** `toLocaleDateString` with a time zone costs 10 to 15 ms the first time it runs. "Today" now comes from a UTC offset in plain arithmetic (`TIMEZONE_OFFSET_MINUTES` in `worker/pro.jsonc`, 420 for Jakarta).
+- **Skill matching.** It built one Unicode regular expression per trigger word (59 of them) on every request, and for an ordinary message with no trigger in it that was 18 ms. One regex now normalises the message and the rest is substring checks.
+- **Reading the answer.** islam-gpt streams 70 to 1,800 tiny events and a 4 KB `references` block the page never shows; `chatBuffered` reads the whole stream as text and parses it in one pass (8 times cheaper), and skips the references unless asked.
+
+Result on the same request: 22 to 26 ms before, 4 to 5 ms after in a cold-process test, and 4.4 to 9.5 ms (median 5.8) per request on Cloudflare itself. `test/worker.test.js` has a guard that runs a typical request in a fresh process and fails above 8 ms, and `test/agent.test.js` has one for the skill matching. Request logging to Axiom is off (`AXIOM_LOG` "0") until the dataset exists: each log line is a subrequest that costs CPU and would only fail. If a Worker needs more headroom, Workers Paid ($5 a month) lifts the limit to 30 s of CPU.
+
 ## Internet access (web tools)
 
 The loop runs in a **Cloudflare Worker**, `worker/pro.js` at https://pro-worker.situs.id (the page's `WORKER` constant), so it also works on GitHub Pages and from `http://localhost`. It is deployed like `../guru` and `../faith`:
@@ -66,7 +76,7 @@ node bin/proxy.js                          # the same /agent on 127.0.0.1:8787, 
 - One copy of the logic: the Worker, `bin/proxy.js` and the CLI all run `src/`; the deploy follows the Worker's imports and uploads those files. Nothing in `src/` may do I/O, timers or random values while loading (Workers refuse that; a test checks it).
 - **Search needs no key**: DuckDuckGo's HTML page (POST, then GET), then Wikipedia's search. `BRAVE_API_KEY` (paid) is optional: if it is set as a secret it goes first. Each result says which backend answered (`via`), and the log records it.
 - Limits (`worker/pro.jsonc`): 6 questions a minute per IP address, 60 a minute for everybody; only `pro.situs.id` and localhost origins may call it.
-- Request log in Axiom (dataset `pro.situs.id`, secret `AXIOM_TOKEN`): one line per question with who (IP, country, browser), which professional, the user's message, the tools used, steps, size and time. The answer text is not logged. The page tells the user (the globe's tooltip) that messages are logged. The dataset has to exist in Axiom first, or the lines are dropped.
+- Request log in Axiom (off for now: `AXIOM_LOG` "0" in `worker/pro.jsonc`; dataset `pro.situs.id`, secret `AXIOM_TOKEN`): one line per question with who (IP, country, browser), which professional, the user's message, the tools used, steps, size and time. The answer text is not logged. The page tells the user (the globe's tooltip) that messages are logged. The dataset has to exist in Axiom first, or the lines are dropped.
 - `npm test` also runs `test/worker.test.js`: the whole Worker in Node with a fake network. `npm run test:offline` skips the tests that call islam-gpt.org.
 
 `show_image` finds one existing photo on Wikimedia Commons (free, no key, licensed) and shows it under the reply. It searches for a photo, it never generates one.

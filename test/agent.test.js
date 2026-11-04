@@ -234,3 +234,43 @@ test("extractDocuments: a document that ends inside a code fence gets the fence 
   assert.equal(extractDocuments('<document title="K">\n# K\n```js\nlet a = 1;\n```\nakhir\n</document>').documents[0].markdown, "# K\n```js\nlet a = 1;\n```\nakhir");
   assert.equal(extractDocuments('<document title="K">\n# K\n```js\nlet a = 1;').documents[0].markdown, "# K\n```js\nlet a = 1;\n```"); // cut off
 });
+
+import { today } from "../src/agent.js";
+test("today: a UTC offset is plain arithmetic (no Intl), a zone name still works, and the date turns over at local midnight", () => {
+  const real = Date.now;
+  try {
+    Date.now = () => Date.parse("2026-11-04T16:59:59Z"); // 23:59:59 in Jakarta
+    assert.equal(today(420), "2026-11-04");
+    Date.now = () => Date.parse("2026-11-04T17:00:00Z"); // midnight in Jakarta
+    assert.equal(today(420), "2026-11-05");
+    assert.equal(today(0), "2026-11-04");
+    assert.equal(today(-300), "2026-11-04"); // New York in winter, behind UTC
+    assert.equal(today("Asia/Jakarta"), "2026-11-05"); // a zone name goes through Intl and agrees
+    assert.equal(today(NaN), "2026-11-04"); // a bad setting is UTC, never a thrown error
+  } finally { Date.now = real; }
+});
+
+test("matchingSkills: whole words and phrases, hyphens and punctuation, no match for part of a word", async () => {
+  const { matchingSkills } = await import("../src/skills.js");
+  const skills = new Map([["w", { name: "w", description: "", triggers: ["test plan", "mock-up", "kode", "c#"], body: "B" }]]);
+  const hit = (m) => matchingSkills(skills, m).length === 1;
+  assert.ok(hit("Buat TEST PLAN untuk login"));
+  assert.ok(hit("buat test   plan")); // extra spaces
+  assert.ok(hit("tolong, mock up halaman") && hit("tolong mock-up halaman") && hit("(mock-up)"));
+  assert.ok(hit("tulis kode."));
+  assert.ok(!hit("kodean baru") && !hit("encode ini") && !hit("test planning") && !hit("planning test"));
+  assert.ok(!hit("Halo, satu kata saja."));
+  assert.ok(!hit(""));
+});
+
+test("matchingSkills: a message with no trigger costs almost no CPU on the first call (cold isolates have about 10 ms on the free plan)", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const code = `
+    import { loadSkills } from ${JSON.stringify(new URL("../src/skills-fs.js", import.meta.url).href)};
+    import { matchingSkills } from ${JSON.stringify(new URL("../src/skills.js", import.meta.url).href)};
+    const skills = loadSkills();
+    const cpu = () => { const u = process.cpuUsage(); return (u.user + u.system) / 1000; };
+    const t = cpu(); matchingSkills(skills, "Halo, satu kata saja."); console.log(cpu() - t);`;
+  const ms = Number(execFileSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" }));
+  assert.ok(ms < 8, `the first matchingSkills call took ${ms.toFixed(1)} ms of CPU (it was 18 ms when it compiled a regex per trigger)`);
+});

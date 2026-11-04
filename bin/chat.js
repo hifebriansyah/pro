@@ -16,7 +16,7 @@ async function answer(question) {
   try {
     const onChunk = (t) => process.stdout.write(t);
     const { references, images = [], documents = [] } = web
-      ? await agentChat(question, { skills: loadSkills(), onChunk, onTool: (t) => console.error(`\n[${t.name} ${JSON.stringify(t.args)}${t.error ? ` -> ${t.error}` : ""}]`) })
+      ? await agentChat(question, { skills: loadSkills(), references: true, onChunk, onTool: (t) => console.error(`\n[${t.name} ${JSON.stringify(t.args)}${t.error ? ` -> ${t.error}` : ""}]`) })
       : await chat(question, { onChunk });
     lastRefs = references;
     for (const d of documents) process.stdout.write(`\n\n--- ${d.title} ---\n${d.markdown}\n---`);

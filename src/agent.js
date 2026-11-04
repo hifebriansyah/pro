@@ -1,6 +1,6 @@
 // Tool loop over a text-only API: islam-gpt.org has no function calling, so the prompt teaches the model a
 // one-line protocol (TOOL: {"name":...,"args":{...}}), we run the tool, and ask again with the result inside.
-import { chat as islamChat } from "./islam.js";
+import { chatBuffered as islamChat } from "./islam.js";
 import { TOOLS } from "./tools.js";
 import { matchingSkills, skillTool } from "./skills.js";
 import { MAX_CHARS, MAX_PARTS, cleanContinuation, continuationPrompt, openBlock } from "./continue.js";
@@ -10,10 +10,20 @@ const RESULT_CHARS = 4000;
 const CONTINUE_TIMEOUT_MS = 100_000; // one continuation call: islam-gpt takes about 30 s for a long part, so this only catches a stalled one
 const SKILL_CHARS = 8000; // instructions are not search results: do not cut them like one
 
+/**
+ * Today's date as YYYY-MM-DD. A number is a fixed offset from UTC in minutes (Jakarta is 420): plain arithmetic. A string is an IANA time
+ * zone, and that goes through Intl, which costs 10 ms or more of CPU the first time: enough to get a request on a cold Cloudflare Worker
+ * killed (the free plan allows about 10 ms), so the Worker is configured with an offset.
+ */
+export function today(timeZone) {
+  if (typeof timeZone === "number") return new Date(Date.now() + (Number.isFinite(timeZone) ? timeZone : 0) * 60_000).toISOString().slice(0, 10); // NaN (a bad setting) is UTC, never an error
+  return new Date().toLocaleDateString("en-CA", { timeZone });
+}
+
 export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {
   const list = Object.entries(tools).map(([n, t]) => `- ${n} ${t.usage}: ${t.does}`).join("\n");
   const skillList = skills.size ? `\n\nSkills (call load_skill with the name to read its instructions BEFORE doing that kind of task, then follow them):\n${[...skills.values()].map((k) => `- ${k.name}: ${k.description}`).join("\n")}\nA skill's rules for what it produces (a Markdown document, say) override your persona's plain-text and no-list rules for that output only; your chat sentences keep your persona's voice.` : "";
-  return `Today is ${new Date().toLocaleDateString("en-CA", { timeZone })} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
+  return `Today is ${today(timeZone)} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
 }
 
 /** The first `TOOL: {...}` line of a reply as {name, args}, or null when the reply is a normal answer. */
@@ -98,7 +108,7 @@ async function finishReply(first, request, chatFn, opts, { onToolStart, onTool }
  * Ask with web tools. Calls onChunk once, with the final answer (replies are held back until we know they are not tool calls).
  * Options: persona (who the model must stay as; repeated after every tool result so it does not drift), tools,
  * skills (a Map: loadSkills() from skills-fs.js on Node, skillsFromList() on Workers; default none), env (settings handed to the tools, e.g. BRAVE_API_KEY),
- * timeZone (for "today"; Workers run in UTC, so the Worker sets Asia/Jakarta), message (the user's latest text: skills whose trigger words it contains are preloaded), chatFn (for tests), onToolStart({name,args}) before a tool runs,
+ * timeZone (for "today": an IANA name, or a number of minutes from UTC; Workers run in UTC, so the Worker sets 420 for Jakarta), message (the user's latest text: skills whose trigger words it contains are preloaded), chatFn (for tests), onToolStart({name,args}) before a tool runs,
  * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document and onMockup({title,html}) for each mockup in the answer, plus the islam.js options.
  * Resolves to { text, references, images, documents, mockups, steps }.
  */

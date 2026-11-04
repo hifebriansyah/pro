@@ -4,7 +4,7 @@
 //        ->  Server-Sent Events, one JSON per `data:` line (see src/serve.js):
 //            {type:"tool",phase,name,args}  {type:"image",...}  {type:"document",title,markdown}  {type:"chunk",text}  {type:"references"}  {type:"done"}
 //
-// Settings (worker/pro.jsonc): ALLOWED_ORIGINS, TIMEZONE, AXIOM_DATASET, AXIOM_URL, the rate limits LIMITER (each IP address) and LIMITER_ALL (everybody).
+// Settings (worker/pro.jsonc): ALLOWED_ORIGINS, TIMEZONE_OFFSET_MINUTES, AXIOM_LOG, AXIOM_DATASET, AXIOM_URL, the rate limits LIMITER (each IP address) and LIMITER_ALL (everybody).
 // Secrets: BRAVE_API_KEY (optional: better search; entered in the Cloudflare dashboard, deploys keep it); AXIOM_TOKEN, copied from .env by the deploy.
 //
 // Request log (Axiom, when AXIOM_TOKEN is set), like guru's: one line per question (who asked: IP address, country and browser; which
@@ -18,7 +18,7 @@ import { skillsFromList } from "../src/skills.js";
 const SKILLS = __SKILLS__;
 
 function logLine(env, ctx, event) {
-  if (!env.AXIOM_TOKEN) return;
+  if (!env.AXIOM_TOKEN || env.AXIOM_LOG === "0") return; // AXIOM_LOG "0": off (no dataset yet): each line is a subrequest, which costs CPU and fails anyway
   const url = `${env.AXIOM_URL || "https://us-east-1.aws.edge.axiom.co"}/v1/ingest/${encodeURIComponent(env.AXIOM_DATASET || "pro.situs.id")}`;
   ctx.waitUntil(fetch(url, {
     method: "POST",
@@ -77,7 +77,7 @@ export default {
       // A long answer is quiet for tens of seconds between its parts: a comment line now and then (the page ignores it) keeps the connection from being closed as idle.
       const ping = setInterval(() => writer.write(enc.encode(": ping\n\n")).catch(() => ac.abort()), Number(env.KEEPALIVE_MS) || 15_000);
       try {
-        const summary = await runAgent(body, { send, signal: ac.signal, env, skills: skillsFromList(SKILLS), timeZone: env.TIMEZONE });
+        const summary = await runAgent(body, { send, signal: ac.signal, env, skills: skillsFromList(SKILLS), timeZone: Number(env.TIMEZONE_OFFSET_MINUTES ?? 0) });
         logLine(env, ctx, {
           ...who, kind: "agent", agent: /You are (\w+)/.exec(body.persona)?.[1], message: body.message.slice(0, 500) || undefined,
           ...summary, ms: Date.now() - started,

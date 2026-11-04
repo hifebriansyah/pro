@@ -9,7 +9,7 @@ const realFetch = globalThis.fetch;
 afterEach(() => (globalThis.fetch = realFetch));
 
 const ORIGIN = "https://pro.situs.id";
-const baseEnv = { ALLOWED_ORIGINS: `${ORIGIN},http://localhost`, TIMEZONE: "Asia/Jakarta", AXIOM_TOKEN: "t", AXIOM_DATASET: "pro.test", AXIOM_URL: "https://axiom.test" };
+const baseEnv = { ALLOWED_ORIGINS: `${ORIGIN},http://localhost`, TIMEZONE_OFFSET_MINUTES: "420", AXIOM_TOKEN: "t", AXIOM_DATASET: "pro.test", AXIOM_URL: "https://axiom.test" };
 
 /** A fake internet: islam-gpt.org answers from `replies` in order, DuckDuckGo refuses, Wikipedia finds one page, Axiom records its lines. */
 function fakeNet(replies, { delayMs = 0 } = {}) {
@@ -146,4 +146,40 @@ test("worker: a request without a deviceId gets its own random one (shared by th
   assert.notEqual(net.devices[0], net.devices[1], "two requests, two ids");
   assert.equal(net.devices[2], net.devices[3], "the first part and its continuation use one id");
   assert.equal(net.devices[4], "abc123");
+});
+
+test("worker: a typical request uses little CPU on a cold start (the free plan kills a request at about 10 ms of CPU: it was 503 for ordinary messages)", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const here = (p) => JSON.stringify(new URL(p, import.meta.url).href);
+  const code = `
+    import { loadSkills } from ${here("../src/skills-fs.js")};
+    globalThis.__SKILLS__ = [...loadSkills().values()];
+    const refs = JSON.stringify({ type: "references", data: Array.from({ length: 4 }, (_, i) => ({ source: "S" + i, content: "x".repeat(900) })) });
+    const answer = "Test case adalah satu set kondisi, langkah, dan hasil yang diharapkan untuk memeriksa sebuah fitur. ".repeat(12);
+    const sse = [refs, ...[...answer].map((c) => JSON.stringify({ type: "chunk", text: c })), '{"type":"done"}'].map((d) => "data: " + d).join("\\n\\n") + "\\n\\n";
+    globalThis.fetch = async (u) => String(u).endsWith("/api/questions") ? Response.json({ shareId: "abcdefgh12345678" }) : new Response(sse);
+    const worker = (await import(${here("../worker/pro.js")})).default;
+    const persona = "You are Sinta, a QA engineer. ".repeat(80);
+    const env = { ALLOWED_ORIGINS: "https://pro.situs.id", TIMEZONE_OFFSET_MINUTES: "420" };
+    const cpu = () => { const u = process.cpuUsage(); return (u.user + u.system) / 1000; };
+    // Node loads its fetch, Request and Response code lazily on first use (about 11 ms); a Worker has them built in. Touch them before timing, so only our code is measured.
+    new Request("https://w/"); new Response("x"); Response.json({}); new TransformStream(); new TextEncoder(); new AbortController(); AbortSignal.timeout(1); crypto.getRandomValues(new Uint8Array(4));
+    const t = cpu();
+    const pending = [];
+    const res = await worker.fetch(new Request("https://w/agent", { method: "POST", headers: { Origin: "https://pro.situs.id" }, body: JSON.stringify({ deviceId: "x", question: "Halo, apa itu test case?", message: "Halo, apa itu test case?", persona }) }), env, { waitUntil: (p) => pending.push(p) });
+    const text = await res.text(); await Promise.all(pending);
+    console.log(JSON.stringify({ ms: cpu() - t, ok: text.includes('"type":"chunk"') && text.includes("Test case adalah") }));`;
+  const out = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" }));
+  assert.ok(out.ok, "the request still produced the answer");
+  assert.ok(out.ms < 8, `a cold request took ${out.ms.toFixed(1)} ms of CPU`);
+});
+
+test("worker: AXIOM_LOG=0 sends no log lines (and costs no subrequest); otherwise a line per question", async () => {
+  const off = fakeNet(["Satu."]);
+  await call({ question: "x" }, { env: { ...baseEnv, AXIOM_LOG: "0" } });
+  await call({ question: "x" }, { env: { ...baseEnv, AXIOM_LOG: "0" }, origin: "https://evil.example" }); // refused requests are not logged either
+  assert.equal(off.logs.length, 0);
+  const on = fakeNet(["Dua."]);
+  await call({ question: "x" });
+  assert.ok(on.logs.some((l) => l.kind === "agent"));
 });

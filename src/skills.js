@@ -17,10 +17,20 @@ export function skillsFromList(list) {
   return new Map(list.map((k) => [k.name, { triggers: [], description: "", ...k }]));
 }
 
-/** Skills whose trigger words appear in the user's message (whole words, any case): they are preloaded instead of left to the model's choice. */
+const NON_WORD = /[^\p{L}\p{N}]+/gu;
+// Lower-cased, every run of non-letters and non-digits turned into one space, padded: "Mock-up!" -> " mock up ". A trigger found in the message
+// as " trigger " is a whole word (or whole words), so "catatan" is not found in "catatanku" and "table" not in "stable".
+const words = (text) => " " + String(text).toLowerCase().replace(NON_WORD, " ").trim() + " ";
+
+/**
+ * Skills whose trigger words appear in the user's message (whole words, any case): they are preloaded instead of left to the model's choice.
+ * One regular expression normalises the message and the rest is substring checks. The first version built a Unicode regex for each of the
+ * (59) triggers on every request, and for an ordinary message (no trigger in it) that cost 18 ms of CPU on a cold isolate: more than the
+ * 10 ms a free-plan Cloudflare Worker gets, so the request was killed.
+ */
 export function matchingSkills(skills, message) {
-  const text = ` ${String(message).toLowerCase()} `;
-  return [...skills.values()].filter((k) => (k.triggers ?? []).some((t) => new RegExp(`[^\\p{L}\\p{N}]${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\\p{L}\\p{N}]`, "u").test(text)));
+  const text = words(message);
+  return [...skills.values()].filter((k) => (k.triggers ?? []).some((t) => text.includes(words(t))));
 }
 
 /** The load_skill tool for agent.js: names come from the loaded map, so the model can never read other files. */

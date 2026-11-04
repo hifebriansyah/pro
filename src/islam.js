@@ -77,3 +77,36 @@ export async function chat(question, { onChunk, ...opts } = {}) {
   }
   return { shareId, text, references };
 }
+
+const CHUNK = /^\{"type":"chunk","text":("(?:[^"\\]|\\.)*")\}$/;
+
+/**
+ * The whole answer stream, already read as text, to { text, references }, in one pass. Much cheaper than reading it event by event with
+ * stream(): an answer is 70 to 1,800 tiny events, and on a Cloudflare Worker (about 10 ms of CPU on the free plan) the per-event cost of
+ * async iteration and JSON.parse was enough to get requests killed. The text of all chunk events is parsed as one JSON array, and the
+ * references block (about 4 KB, which the page never shows) is only parsed when `references` is asked for.
+ */
+export function parseAnswerText(body, { references = false } = {}) {
+  const literals = [];
+  let refs = [];
+  for (const m of body.matchAll(/^data: ?(.*)$/gm)) {
+    const data = m[1];
+    const chunk = CHUNK.exec(data);
+    if (chunk) { literals.push(chunk[1]); continue; }
+    if (data.startsWith('{"type":"references"')) {
+      if (references) { try { const d = JSON.parse(data).data; refs = typeof d === "string" ? JSON.parse(d) : d; } catch {} }
+      continue;
+    }
+    if (data.startsWith('{"type":"chunk"')) { try { literals.push(JSON.stringify(JSON.parse(data).text ?? "")); } catch {} } // a chunk in another shape
+  }
+  return { text: literals.length ? JSON.parse("[" + literals.join(",") + "]").join("") : "", references: refs };
+}
+
+/** Like chat(), but the answer is read as a whole and parsed in one pass (see parseAnswerText): the cheap path for the agent. */
+export async function chatBuffered(question, { references = false, ...opts } = {}) {
+  const shareId = await ask(question, opts);
+  const res = await fetch(`${opts.baseUrl ?? BASE_URL}/api/stream/${shareId}`, { headers: { Accept: "text/event-stream" }, signal: opts.signal });
+  if (!res.ok) throw new Error(`GET /api/stream/${shareId}: HTTP ${res.status}`);
+  return { shareId, ...parseAnswerText(await res.text(), { references }) };
+}
+
