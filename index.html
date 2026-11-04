@@ -184,6 +184,9 @@
   .md th, .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
   .md th { background: var(--panel-2); font-weight: 600; }
   .bubble.card { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 12px; max-width: min(75%, 360px); }
+  .formats { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .formats .chip { padding: 8px 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+  .formats .chip:hover { background: var(--hover); }
   .bubble.card:hover { background: var(--hover); }
   .bubble.card svg { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .bubble.card b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -665,6 +668,20 @@ function docCard(d) {
   return b;
 }
 
+// When the AI cannot tell what kind of answer is wanted it asks (the `formats` event): three buttons, each sends the choice as the next message.
+// The words matter: "dokumen" and "website" are trigger words of the writing-md and mockup-html skills, which are then loaded for the answer.
+const FORMATS = [["Chat", "Jawab sebagai chat biasa saja."], ["Dokumen", "Buatkan sebagai dokumen."], ["Website", "Buatkan sebagai website (mockup)."]];
+function formatChoices() {
+  const row = el("div", "formats");
+  for (const [label, message] of FORMATS) {
+    const b = el("button", "chip", label);
+    b.type = "button";
+    b.onclick = () => sendMessage(message);
+    row.append(b);
+  }
+  return row;
+}
+
 function scrollDown() { const m = $("msgs"); m.scrollTop = m.scrollHeight; }
 
 function renderChat() {
@@ -688,6 +705,7 @@ function renderChat() {
     for (const i of m.images ?? []) box.append(picture(i));
     for (const d of m.docs ?? []) box.append(docCard({ kind: "doc", ...d }));
     for (const k of m.mockups ?? []) box.append(docCard({ kind: "mockup", ...k }));
+    if (m.formats && m === c.messages.at(-1) && !busy.has(c.id)) box.append(formatChoices());
   }
   scrollDown();
   $("send").disabled = busy.has(c.id);
@@ -765,11 +783,12 @@ async function sendMessage(text) {
           update();
         }
         else if (ev.type === "mockup" && typeof ev.html === "string") {
-          const k = { title: String(ev.title || "Mockup").slice(0, 120), html: ev.html.slice(0, 120000) };
+          const k = { title: String(ev.title || "Mockup").slice(0, 120), html: ev.html };
           (reply.mockups ??= []).push(k);
           if (state.current === c.id) openDoc({ kind: "mockup", ...k }); // show it on the right as soon as it arrives
           update();
         }
+        else if (ev.type === "formats") { reply.formats = true; update(); }
         else if (ev.type === "tool") { reply.status = ev.phase === "start" ? toolStatus(ev) : "menulis jawaban…"; update(); }
         else if (ev.type === "error") throw new Error(ev.message);
         else if (ev.type === "done") { reader.cancel(); break read; }

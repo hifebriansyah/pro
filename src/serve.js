@@ -38,6 +38,7 @@ export async function runAgent(body, { send, signal, env, skills, timeZone, chat
     const res = await agentChat(body.question, {
       deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn: chatFn ?? (body.provider === "quran" ? quranChat : undefined),
       onDocument: (d) => { summary.documents++; send({ type: "document", ...d }); },
+      onFormats: () => { summary.formats = (summary.formats ?? 0) + 1; send({ type: "formats" }); },
       onMockup: (m) => { summary.mockups++; send({ type: "mockup", ...m }); },
       onToolStart: ({ name, args }) => send({ type: "tool", phase: "start", name, args }),
       onChunk: (text) => { summary.chars += text.length; send({ type: "chunk", text }); },

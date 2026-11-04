@@ -289,8 +289,44 @@ test("agentChat: a call that names a skill is treated as load_skill, and the ans
   const skills = new Map([["mockup-html", { name: "mockup-html", description: "d", triggers: [], body: "SKILL BODY" }]]);
   const replies = ['Saya akan mulai. TOOL: {"name":"mockup-html","args":{"title":"x"}}', "Ini hasilnya."];
   const prompts = [], tools = [];
-  const res = await agentChat("buat", { skills, message: "buat", chatFn: async (q) => { prompts.push(q); return { text: replies.shift(), references: [] }; }, onTool: (t) => tools.push(t) });
+  const res = await agentChat("buat", { skills, message: "halo", chatFn: async (q) => { prompts.push(q); return { text: replies.shift(), references: [] }; }, onTool: (t) => tools.push(t) });
   assert.equal(res.text, "Ini hasilnya.");
   assert.equal(tools[0].name, "load_skill");
   assert.match(prompts[1], /SKILL BODY/);
+});
+
+test("agentChat: a <formats/> reply asks which kind of answer is wanted (an event and one chat line), and is never shown raw", async () => {
+  const { agentChat } = await import("../src/agent.js");
+  let asked = 0; const chunks = [];
+  const skills = new Map([["writing-md", { name: "writing-md", description: "d", triggers: [], body: "B" }]]);
+  const res = await agentChat("buat jam dunia", { skills, message: "buat jam dunia", chatFn: async () => ({ text: "<formats/>", references: [] }), onFormats: () => asked++, onChunk: (t) => chunks.push(t) });
+  assert.equal(asked, 1);
+  assert.deepEqual(chunks, ["Mau jawabannya dalam bentuk apa?"]);
+  assert.ok(!/formats/.test(res.text));
+  // a real mockup next to the marker wins: nothing is asked
+  asked = 0;
+  await agentChat("x", { skills, message: "x", chatFn: async () => ({ text: '<formats/> <mockup title="a"><p>hi</p></mockup>', references: [] }), onFormats: () => asked++ });
+  assert.equal(asked, 0);
+});
+
+test("the instructions tell the model when to ask for a format, and the page has the three buttons", async () => {
+  const { toolInstructions } = await import("../src/agent.js");
+  const { readFileSync } = await import("node:fs");
+  assert.match(toolInstructions(undefined, new Map([["a", { name: "a", description: "d" }]])), /<formats\/>/);
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /\["Chat", "[^"]+"\], \["Dokumen", "[^"]+"\], \["Website", "[^"]+"\]/);
+  assert.match(html, /ev\.type === "formats"/);
+});
+
+test("agentChat: a build request with no format named asks first, without calling the model; named formats and plain questions do not", async () => {
+  const { agentChat } = await import("../src/agent.js");
+  const skills = new Map([["writing-md", { name: "writing-md", description: "d", triggers: ["dokumen"], body: "B" }], ["mockup-html", { name: "mockup-html", description: "d", triggers: ["website"], body: "M" }]]);
+  const run = async (message) => { let asked = 0, calls = 0; await agentChat(message, { skills, message, chatFn: async () => { calls++; return { text: "jawaban", references: [] }; }, onFormats: () => asked++ }); return { asked, calls }; };
+  assert.deepEqual(await run("buatkan saya jam dunia"), { asked: 1, calls: 0 });
+  assert.deepEqual(await run("Bikin aplikasi todo"), { asked: 1, calls: 0 });
+  assert.deepEqual(await run("buatkan website jam dunia"), { asked: 0, calls: 1 });
+  assert.deepEqual(await run("Buatkan sebagai dokumen."), { asked: 0, calls: 1 });
+  assert.deepEqual(await run("Jawab sebagai chat biasa saja."), { asked: 0, calls: 1 });
+  assert.deepEqual(await run("bagaimana cara kerja zona waktu?"), { asked: 0, calls: 1 });
+  assert.deepEqual(await run("tidak ada pembuatan apa-apa"), { asked: 0, calls: 1 });
 });

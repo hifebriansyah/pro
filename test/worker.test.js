@@ -82,7 +82,7 @@ test("worker: a mockup skill is preloaded by its trigger word, and a mockup even
 
 test("worker: a document cut off by islam-gpt is carried on and sent as one; slow parts get keepalive comments; the status says which part", async () => {
   const net = fakeNet(['Ini PRD-nya.\n<document title="PRD">\n# PRD\n\n## Latar\nSatu dua ', "tiga.\n\n## Tujuan\nSatu.\n</document>"], { delayMs: 60 });
-  const { text, events } = await call({ question: "buatkan PRD", message: "buatkan PRD" }, { env: { ...baseEnv, KEEPALIVE_MS: "10" } });
+  const { text, events } = await call({ question: "buatkan PRD", message: "buatkan catatan PRD" }, { env: { ...baseEnv, KEEPALIVE_MS: "10" } });
   assert.ok(text.includes(": ping"), "a comment line was sent while the model was slow");
   assert.deepEqual(events.find((e) => e.type === "document"), { type: "document", title: "PRD", markdown: "# PRD\n\n## Latar\nSatu dua tiga.\n\n## Tujuan\nSatu." });
   assert.deepEqual(events.filter((e) => e.type === "tool").map((e) => [e.phase, e.name, e.args.part]), [["start", "continue", 2], ["end", "continue", 2]]);

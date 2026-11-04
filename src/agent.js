@@ -6,6 +6,8 @@ import { matchingSkills, skillTool } from "./skills.js";
 import { MAX_CHARS, MAX_PARTS, cleanContinuation, continuationPrompt, openBlock } from "./continue.js";
 
 const MAX_STEPS = 3;
+const FORMAT_QUESTION = "Mau jawabannya dalam bentuk apa?";
+const BUILD_REQUEST = /(?:^|[^\p{L}])(?:buat(?:kan|in)?|bikin(?:kan)?|rancang(?:kan)?|susun(?:kan)?|create|make|build|generate)(?![\p{L}])/iu;
 const RESULT_CHARS = 4000;
 const CONTINUE_TIMEOUT_MS = 100_000; // one continuation call: islam-gpt takes about 30 s for a long part, so this only catches a stalled one
 const SKILL_CHARS = 8000; // instructions are not search results: do not cut them like one
@@ -22,7 +24,7 @@ export function today(timeZone) {
 
 export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {
   const list = Object.entries(tools).map(([n, t]) => `- ${n} ${t.usage}: ${t.does}`).join("\n");
-  const skillList = skills.size ? `\n\nSkills (call load_skill with the name to read its instructions BEFORE doing that kind of task, then follow them):\n${[...skills.values()].map((k) => `- ${k.name}: ${k.description}`).join("\n")}\nA skill's rules for what it produces (a Markdown document, say) override your persona's plain-text and no-list rules for that output only; your chat sentences keep your persona's voice.` : "";
+  const skillList = skills.size ? `\n\nSkills (call load_skill with the name to read its instructions BEFORE doing that kind of task, then follow them):\n${[...skills.values()].map((k) => `- ${k.name}: ${k.description}`).join("\n")}\nA skill's rules for what it produces (a Markdown document, say) override your persona's plain-text and no-list rules for that output only; your chat sentences keep your persona's voice.\n\nIf you truly cannot tell whether the user wants a plain chat answer, a written document or a website / screen (mockup), do not guess: reply with only the marker <formats/> and nothing else, and the page shows the user three buttons. Ask only when it is unclear, and never twice: if the user's message names a format (\"as a document\", \"as a website\", \"chat only\"), do that.` : "";
   return `Today is ${today(timeZone)} (use this for questions about today's date; no search needed). You can look things up on the internet. Tools:\n${list}${skillList}\n\nTo use a tool, reply with ONLY that one line: no greeting, no "wait a moment", no other text before or after it: TOOL: {"name": "<tool>", "args": {...}}\nYou will then get the result and can answer. Use a tool only for recent or unknown facts; otherwise answer directly. Cite the URLs you used.`;
 }
 
@@ -140,13 +142,19 @@ async function finishReply(first, request, chatFn, opts, { onToolStart, onTool }
  * onTool({name,args,result|error}) after, onDocument({title,markdown}) for each document and onMockup({title,html}) for each mockup in the answer, plus the islam.js options.
  * Resolves to { text, references, images, documents, mockups, steps }.
  */
-export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, onMockup, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
+export async function agentChat(question, { onChunk, onTool, onToolStart, onDocument, onMockup, onFormats, skills = new Map(), env, timeZone, message = "", persona = "", tools = TOOLS, chatFn = islamChat, maxSteps = MAX_STEPS, ...opts } = {}) {
   if (skills.size && !tools.load_skill) tools = { ...tools, load_skill: skillTool(skills) };
   const images = [];
   const documents = [];
   const mockups = [];
   const exchanges = []; // what the tools returned so far, replayed on every round
   const preloaded = matchingSkills(skills, message);
+  // A request to make something that names no format (and no skill's trigger word matched, so it is not clearly a document or a website): ask first, instantly, without the model.
+  if (skills.size && !preloaded.length && BUILD_REQUEST.test(message)) {
+    onFormats?.();
+    onChunk?.(FORMAT_QUESTION);
+    return { text: FORMAT_QUESTION, references: [], images, documents, mockups, steps: 0 };
+  }
   const preload = preloaded.map((k) => `Skill "${k.name}" applies to this request, follow it:\n${k.body}\n\n`).join("");
   const base = `${toolInstructions(tools, skills, timeZone)}\n\n${persona ? `${persona}\n\n` : ""}${preload}User question: ${question}`;
   for (let step = 0; ; step++) {
@@ -163,6 +171,11 @@ export async function agentChat(question, { onChunk, onTool, onToolStart, onDocu
     if (!call) {
       const withoutMockups = extractMockups(res.text); // first: the HTML inside must not be read as anything else
       for (const m of withoutMockups.mockups) { mockups.push(m); onMockup?.(m); }
+      if (!withoutMockups.mockups.length && /<formats\s*\/?>/i.test(withoutMockups.text)) { // not sure what kind of answer is wanted: the page shows buttons (chat, document, website)
+        onFormats?.();
+        onChunk?.(FORMAT_QUESTION);
+        return { ...res, text: FORMAT_QUESTION, images, documents, mockups, steps: step };
+      }
       const found = extractDocuments(withoutMockups.text);
       for (const d of found.documents) { documents.push(d); onDocument?.(d); }
       // a reply that is only a document or a mockup still needs a chat line
