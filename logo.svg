@@ -1,6 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <!-- Outer Circuit Line -->
-  <path d="M 55,170 L 55,40 L 155,40 L 155,80 L 100,80 L 100,105 L 145,105 L 145,140 L 100,140" fill="none" stroke="#f59e0b" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="55" cy="170" r="12" fill="#fbbf24"/>
-  <circle cx="100" cy="140" r="10" fill="#d97706"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <rect width="100%" height="100%" fill="#171920" />
+  
+  <defs>
+    <!-- Gradient for the 'P' -->
+    <linearGradient id="pGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" />
+      <stop offset="100%" stop-color="#007BFF" />
+    </linearGradient>
+    
+    <!-- Mask to completely cut out the 'P' directly behind and inside the 'O' -->
+    <mask id="pMask">
+      <rect width="100%" height="100%" fill="white" />
+      <circle cx="305" cy="295" r="59" fill="black" />
+    </mask>
+    
+    <!-- Drop shadow for the 'O' ring to cast onto the 'P' -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="-2" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Solid 'P' Shape -->
+  <path d="M 140 110
+           L 250 110
+           A 100 100 0 0 1 350 210
+           L 350 230
+           A 100 100 0 0 1 250 330
+           L 220 330
+           L 220 410
+           L 140 410
+           Z" fill="url(#pGrad)" mask="url(#pMask)" />
+
+  <!-- Overlapping 'O' Ring -->
+  <circle cx="305" cy="295" r="48" fill="none" stroke="#ffffff" stroke-width="20" filter="url(#shadow)" />
 </svg>

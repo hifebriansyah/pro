@@ -55,15 +55,17 @@ The round picture is the first letter of the name on the professional's colour. 
 
 ## Logo, icons and share image
 
-`logo.svg` is the logo (a circuit line that forms a letter, with two amber dots; it is still faith's logo, a new one can replace it). `python3 tools/make_icons.py` (needs Pillow) draws `logo.png` (1024, transparent), the icons in `icons/` (192 and 512, a maskable one, the iOS apple-touch-icon, the 48 px favicon), `favicon.ico` and `og-image.png` (1200x630, the picture shown when the address is shared: the logo and the tagline on the dark page colour). `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app, and the Open Graph and Twitter tags point at the image with an absolute address.
+`logo.svg` is the logo (a gradient P with a white ring forming an O, on a dark background). `python3 tools/make_icons.py` renders **that file itself**, it does not redraw it, so after you edit `logo.svg` you only run the script and every picture follows: `logo.png` (1024, as designed), the icons in `icons/` (192 and 512, a maskable one inside the safe zone, the iOS apple-touch-icon, the 48 px favicon), `favicon.ico` and `og-image.png` (1200x630, the picture shown when the address is shared: the logo and the tagline). `manifest.webmanifest` and the `<head>` of `index.html` use them, so the page can be installed as an app, and the Open Graph and Twitter tags point at the image with an absolute address.
 
+- The first `<rect>` before `<defs>` in `logo.svg` must be the background; its colour is the background of every picture (the icons are the logo on that colour, framed by changing the `viewBox`, and the script finds the drawing's size from the render).
+- Needs Pillow and an SVG renderer that supports masks and filters: macOS Quick Look (built in, used first), else `rsvg-convert` or `cairosvg`. ImageMagick's built-in renderer draws nothing for this logo.
 - The tagline is the same everywhere (description, share tags, manifest, the picture, `TAGLINE` in `make_icons.py`) and a test fails if one of them drifts.
 - **Cache busting:** every icon address carries `?v=<hash of the file>`. `tools/stamp_icons.py` (standard library only) sets it: `make_icons.py` runs it on the repo files, and the Pages workflow runs it on the published copy on every deploy. A test fails when the repo's pages hold a stale hash.
-- The drawing of the share image uses macOS's Helvetica Neue Thin: regenerate it on a Mac.
+- The share image uses macOS's Helvetica Neue Thin for the tagline: regenerate it on a Mac.
 
 ## Palette
 
-The colours come from the logo: its three ambers (`#f59e0b`, `#fbbf24`, `#d97706`) on warm stone greys, as CSS variables at the top of `index.html`, a light set and a dark set (it follows the system setting). Contrast was checked (text 4.5:1 or more on every surface and bubble). Use the variables, not hex values, in new CSS.
+The page colours are still amber on warm stone greys (they came from faith's logo, not from this one), as CSS variables at the top of `index.html`, a light set and a dark set (it follows the system setting). Contrast was checked (text 4.5:1 or more on every surface and bubble). Use the variables, not hex values, in new CSS.
 
 ## Develop
 
