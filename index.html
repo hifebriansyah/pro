@@ -580,24 +580,30 @@ const isSvg = (html) => /^\s*<svg[\s>]/i.test(html);
 // </svg-detect>
 
 // <mockup-frame>
-// The AI's HTML never runs in this page: it is drawn in an iframe with an empty sandbox (no scripts, no forms, no same-origin) and a
-// content security policy that allows inline styles and data: pictures only. These replacements are a second line: script, frames, meta
-// refresh (the one thing a sandbox does not stop: it would send the frame to another site), event handlers and <base> are removed.
+// The AI's HTML never runs in this page: it is drawn in an iframe. An HTML mockup may run its own inline scripts (a clock, a theme toggle,
+// tabs), but the sandbox does not grant same-origin, so the frame is an opaque origin that cannot reach this page, its storage or cookies, and the
+// content security policy allows inline scripts and styles and data: pictures only, so the page cannot load code or send anything anywhere
+// (no network, no frames, no forms, no popups). A logo or icon (SVG) gets no scripts at all. Frames, objects, <base>, <link>, meta refresh
+// (the one thing a sandbox does not stop: it would send the frame to another site) and external scripts are removed as a second line.
 const MOCKUP_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'none'; base-uri 'none'";
+const MOCKUP_CSP_SCRIPTS = MOCKUP_CSP + "; script-src 'unsafe-inline'";
 const SVG_BG = {
   light: "background:#fff",
   dark: "background:#171920",
   checker: "background:#fff conic-gradient(#e5e7eb 25%, transparent 0 50%, #e5e7eb 0 75%, transparent 0) 0 0 / 20px 20px", // transparency shows as a chequerboard
 };
 function frameHtml(html, bg = "light") {
-  const safe = html
-    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<script\b[^>]*>/gi, "")
+  const svg = /^\s*<svg[\s>]/i.test(html);
+  let safe = html
     .replace(/<\/?(?:iframe|frame|frameset|object|embed|applet|base|link)\b[^>]*>/gi, "")
     .replace(/<meta\b[^>]*http-equiv[^>]*>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${MOCKUP_CSP}"><base target="_blank">`;
-  if (/^\s*<svg[\s>]/i.test(safe)) { // a logo, an icon, an illustration: centred on a background the page picks (never the model)
+    .replace(/<script\b[^>]*\ssrc\s*=[^>]*>[\s\S]*?<\/script\s*>/gi, "")   // no external scripts (the policy blocks them too)
+    .replace(/<script\b[^>]*\ssrc\s*=[^>]*>/gi, "");
+  if (svg) { // a logo, an icon, an illustration: no code at all
+    safe = safe.replace(/<script\b[\s\S]*?<\/script\s*>/gi, "").replace(/<script\b[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  }
+  const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${svg ? MOCKUP_CSP : MOCKUP_CSP_SCRIPTS}"><base target="_blank">`;
+  if (svg) { // a logo, an icon, an illustration: centred on a background the page picks (never the model)
     const css = `html,body{margin:0;height:100%}body{display:grid;place-items:center;${SVG_BG[bg] ?? SVG_BG.light}}svg{max-width:100%;max-height:100%}`;
     return `<!doctype html><html><head>${head}<style>${css}</style></head><body>${safe}</body></html>`;
   }
@@ -622,7 +628,7 @@ function renderMock() {
   body.replaceChildren();
   if (mockTab === "code") { body.append(el("pre", "mock-code", docView.html)); return; }
   const frame = el("iframe");
-  frame.setAttribute("sandbox", ""); // nothing allowed
+  frame.setAttribute("sandbox", docView.svg || isSvg(docView.html) ? "" : "allow-scripts"); // scripts only for an HTML mockup, never same-origin
   frame.referrerPolicy = "no-referrer";
   frame.title = docView.title;
   frame.srcdoc = frameHtml(docView.html, mockBg);

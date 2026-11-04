@@ -39,9 +39,9 @@ Put one `<svg>` and nothing else inside the `<mockup>` tag. The page draws it ce
 
 ## What the preview allows (the page runs it in a sandbox)
 
-- **No JavaScript** (no `<script>`, no `onclick`), **no external files** (no CDN, web fonts, stylesheets, images or icons by address) and no forms that submit. Anything like that is removed or blocked.
-- So everything is inline: one `<style>` in the `<head>`, a system font stack, icons and pictures as inline SVG or CSS shapes and gradients. Links are `<a href="#">`.
-- It is a static picture of a screen, not a working app. Do not say it works; say what it shows.
+- **Inline JavaScript works.** Write one `<script>` at the end of the `<body>` (or inline handlers such as `onclick`) and the page runs it: a live clock (`Date`, `Intl.DateTimeFormat`, `setInterval`), a dark and light theme toggle, tabs, a form that validates, a calculator, sorting and filtering a list. Build the working controls the user asked for; do not leave them as pictures.
+- **But it is sandboxed.** No network (`fetch`, XHR, WebSocket and external `<script src>`, CDNs, web fonts, stylesheets and images by address all fail), no `localStorage`, `sessionStorage` or cookies, no popups or navigation, no forms that submit. Keep it self-contained: one `<style>`, one `<script>`, a system font stack, icons and pictures as inline SVG or CSS shapes and gradients, `data:` pictures, links as `<a href="#">`. Keep state in plain variables.
+- A logo or icon (an `<svg>` alone) gets no scripts at all.
 
 ## How to build it well
 
@@ -52,6 +52,6 @@ Put one `<svg>` and nothing else inside the `<mockup>` tag. The page draws it ce
 - **The states that matter.** Show the most important one besides the happy path: a form with an error message, an empty list, or loading skeletons.
 - **Pictures.** Use CSS gradient blocks or simple inline SVG; avatars as circles with initials.
 - **No size limit. Make it complete and rich.** Aim for at least 250 lines of HTML and CSS together (well over 8,000 characters) for a website or app screen, and more when the page needs it. Build the whole page the user asked for, not a sketch: every section a real version of that page has (for a website: header with navigation, hero, the main feature working as far as CSS can show it, several content sections, footer), several realistic items in each list, and polished styling (spacing, colours, hover and focus states, responsive rules). A request that says "lengkap", "complete", "full" or names a whole website or app means a full page, never a few lines. Never shorten, summarise or leave a part as "..." to save space. If your answer is cut off you will be asked to carry on from the last character: write the `<style>` first, keep going, never start over, and finish with `</html>` and `</mockup>`.
-- **Controls that work without JavaScript.** Scripts are blocked, but CSS can still do a lot: a dark and light theme toggle with a hidden checkbox and `:has()` (for example `body:has(#theme:checked) { --bg: #0f172a; ... }`) or radio buttons, tabs and switches with radio inputs, accordions with `<details>`, hover and focus effects. Use them so the buttons and toggles the user asked for really respond. Where something needs real logic (a live clock, a calculation), show believable sample values.
+- **Controls that really work.** Wire every button, toggle, select and tab the user asked for with a short inline script (or CSS such as a hidden checkbox with `:has()` where that is simpler). A theme toggle flips the colours, a switch button swaps the two selections, a clock shows the real time in the chosen zone. Never show a control that does nothing.
 - **Language.** Write the chat reply and all text on the page in the language of the user's newest message.
 - **Finish the page.** The HTML must be complete: it starts with `<!doctype html>`, every tag is closed, and it ends with `</html>`. Write the `<style>` first and keep it short, so there is room for the whole body.
