@@ -429,6 +429,7 @@ function paintAvatar(node, ag) {
   img.src = ag.avatar;
 }
 const busy = new Set(); // chat ids with an answer in flight
+const consults = new Map(); // asker id -> {to, toName}: a professional is putting a question to a colleague right now (shown in the office as a visit)
 
 function renderList() {
   const q = $("q").value.trim().toLowerCase();
@@ -572,6 +573,7 @@ const toolStatus = ({ name, args }) =>
   name === "web_search" ? `mencari “${String(args?.query ?? "").slice(0, 60)}” di internet…`
   : name === "fetch_url" ? "membaca halaman web…"
   : name === "show_image" ? "mencari gambar…"
+  : name === "ask_colleague" ? `bertanya ke ${String(args?.colleague ?? "rekan").slice(0, 30)}…`
   : name === "continue" ? `melanjutkan jawaban (bagian ${args?.part ?? "?"})…`
   : "mencari informasi…";
 // Lucide search
@@ -862,7 +864,7 @@ async function sendMessage(text) {
     let res;
     if (useWorker) {
       // through the local proxy, which lets the model search the web and streams back the same SSE events
-      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
+      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider, agent: c.id }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
       if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
     } else {
       // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
@@ -900,6 +902,7 @@ async function sendMessage(text) {
           update();
         }
         else if (ev.type === "formats") { reply.formats = true; update(); }
+        else if (ev.type === "consult" && typeof ev.to === "string") { if (ev.phase === "start") consults.set(c.id, { to: ev.to, toName: String(ev.toName ?? "") }); else consults.delete(c.id); update(); }
         else if (ev.type === "tool") { reply.status = ev.phase === "start" ? toolStatus(ev) : "menulis jawaban…"; update(); }
         else if (ev.type === "error") throw new Error(ev.message);
         else if (ev.type === "done") { reader.cancel(); break read; }
@@ -916,7 +919,7 @@ async function sendMessage(text) {
   if (drawn.length && !reply.mockups?.length && state.current === c.id) openDoc(svgDoc(drawn[0])); // an SVG written straight into the answer is shown too
   reply.t = Date.now();
   c.updated = reply.t;
-  busy.delete(c.id);
+  busy.delete(c.id); consults.delete(c.id);
   save(); update();
 }
 
@@ -1003,7 +1006,14 @@ const loadThree = () => new Promise((resolve, reject) => {
 // what the office needs to know about a professional: writing an answer now (and what they are doing), and being chatted with
 function officeState(id) {
   const c = chatById(id), last = c?.messages[c.messages.length - 1];
-  return { busy: busy.has(id), status: last?.pending ? last.status : null, selected: state.current === id };
+  const visit = consults.get(id) ?? null;
+  const asked = [...consults].find(([, v]) => v.to === id); // somebody is asking this person a question: they stop and answer
+  return {
+    busy: busy.has(id) || !!asked,
+    status: visit ? `bertanya ke ${visit.toName}…` : asked ? `menjawab pertanyaan ${agentOf(asked[0])?.name ?? "rekan"}…` : last?.pending ? last.status : null,
+    selected: state.current === id,
+    visit: visit?.to ?? null,
+  };
 }
 function officeMessage(html) { const st = $("of-state"); st.replaceChildren(...html); st.classList.remove("hidden"); }
 async function startOffice() {

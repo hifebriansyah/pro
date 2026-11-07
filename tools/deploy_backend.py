@@ -42,11 +42,11 @@ def shared_secret():
 
 
 def collect():
-    """What goes to Vercel: backend/* at the top, src/ and skills/ next to it."""
+    """What goes to Vercel: backend/* at the top, src/, skills/ and the personas (only the .md files) next to it."""
     files = []
-    for base, prefix in ((ROOT / "backend", ""), (ROOT / "src", "src/"), (ROOT / "skills", "skills/")):
+    for base, prefix in ((ROOT / "backend", ""), (ROOT / "src", "src/"), (ROOT / "skills", "skills/"), (ROOT / "personas", "personas/")):
         for f in sorted(base.rglob("*")):
-            if f.is_file() and f.name != ".DS_Store":
+            if f.is_file() and f.name != ".DS_Store" and (prefix != "personas/" or f.suffix == ".md"):
                 files.append({"file": prefix + str(f.relative_to(base)), "data": f.read_text(encoding="utf-8")})
     return files
 

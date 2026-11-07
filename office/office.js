@@ -203,7 +203,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
 
     const inputs = {};
     let busy = 0, sel = null;
-    for (const a of agents) { const st = getState(a.id) ?? {}; inputs[a.id] = { busy: !!st.busy, selected: !!st.selected }; if (st.busy) busy++; if (st.selected) sel = a.id; }
+    for (const a of agents) { const st = getState(a.id) ?? {}; inputs[a.id] = { busy: !!st.busy, selected: !!st.selected, visit: st.visit ?? null }; if (st.busy) busy++; if (st.selected) sel = a.id; }
     if (!paused) { clock += dt; sim.update(dt, inputs, { lookHeading: cam.az }); }
     for (const ev of sim.drainEvents()) if (ev.type === "done") people.get(ev.id).flash = now + DONE_MS;
 

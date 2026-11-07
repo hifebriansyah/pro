@@ -3,8 +3,12 @@
 //   {type:"tool",phase:"start"|"end",name,args,error?}  {type:"image",...}  {type:"document",title,markdown}  {type:"mockup",title,html}  {type:"chunk",text}
 //   {type:"references",data}  {type:"error",message}  {type:"done"}
 import { agentChat } from "./agent.js";
+import { colleagueTool } from "./colleagues.js";
 import { randomDeviceId } from "./islam.js";
 import { PROVIDERS, quranChat } from "./quran.js";
+import { IDS } from "./roster.js";
+import { TOOLS } from "./tools.js";
+import { chatBuffered as islamChat } from "./islam.js";
 
 export const MAX_BODY = 20_000;
 
@@ -19,6 +23,7 @@ export function parseAgentBody(text) {
     question: b.question.slice(0, 12_000),
     deviceId: typeof b.deviceId === "string" ? b.deviceId.slice(0, 64) : undefined,
     persona: typeof b.persona === "string" ? b.persona.slice(0, 6000) : "",
+    agent: IDS.includes(b.agent) ? b.agent : undefined, // who is answering (the page knows): lets them ask a colleague
     provider: PROVIDERS.includes(b.provider) ? b.provider : "islam", // which answer source: islam-gpt.org (default) or quran-gpt.netlify.app
     message: typeof b.message === "string" ? b.message.slice(0, 2000) : "", // the user's latest text: the skills' trigger words are matched on it
   };
@@ -31,12 +36,17 @@ const brief = (args) => String(args?.query ?? args?.url ?? args?.name ?? (args?.
  * Options: send, signal, env (settings for the tools), skills, timeZone, chatFn (tests).
  * Resolves to a summary for the log: { tools: [{name, arg, error?}], steps, documents, mockups, images, chars, error?, aborted? }.
  */
-export async function runAgent(body, { send, signal, env, skills, timeZone, chatFn } = {}) {
+export async function runAgent(body, { send, signal, env, skills, timeZone, chatFn, personas } = {}) {
   const summary = { provider: body.provider, tools: [], steps: 0, documents: 0, mockups: 0, images: 0, chars: 0 };
   const deviceId = body.deviceId ?? randomDeviceId(); // no id sent: this request gets its own, never one shared by everybody (the parts of one answer use the same id)
+  const chat = chatFn ?? (body.provider === "quran" ? quranChat : islamChat);
+  // with the team's personas at hand (the backend has them) the professional may ask a colleague; the page is told so it can show the visit
+  const tools = personas?.size && body.agent
+    ? { ...TOOLS, ask_colleague: colleagueTool({ askerId: body.agent, personas, chatFn: (q, o) => chat(q, { ...o, deviceId: randomDeviceId() }), onConsult: (c) => { summary.consults = (summary.consults ?? 0) + (c.phase === "start" ? 1 : 0); send({ type: "consult", ...c }); } }) }
+    : TOOLS;
   try {
     const res = await agentChat(body.question, {
-      deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn: chatFn ?? (body.provider === "quran" ? quranChat : undefined),
+      deviceId, message: body.message, persona: body.persona, env, skills, timeZone, signal, chatFn: chat, tools,
       onDocument: (d) => { summary.documents++; send({ type: "document", ...d }); },
       onFormats: () => { summary.formats = (summary.formats ?? 0) + 1; send({ type: "formats" }); },
       onMockup: (m) => { summary.mockups++; send({ type: "mockup", ...m }); },

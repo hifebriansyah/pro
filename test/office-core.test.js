@@ -177,3 +177,35 @@ test("zoom towards the cursor: the spot of the floor under the cursor does not m
   const centre = C.anchorShift(0.74, 0.62, 34, 1.5, 0, 0);
   assert.ok(Math.abs(centre.x) < 1e-12 && Math.abs(centre.z) < 1e-12, "at the centre of the screen the target does not need to move");
 });
+
+test("sim: asking a colleague: the asker leaves the desk and talks at the colleague's desk, then goes back to typing; the colleague works at theirs", () => {
+  const sim = C.createSim({ ids: AGENT_IDS, seed: 8 });
+  run(sim, 15);
+  const asker = "engineer", other = "qa", od = C.deskOf(other);
+  const busyAsker = { busy: true };
+  run(sim, 40, { [asker]: busyAsker });                                        // Bima is at his desk, typing
+  assert.equal(sim.snapshot(asker).action, "type");
+  run(sim, 45, { [asker]: { busy: true, visit: other }, [other]: { busy: true } }); // he asks Sinta
+  const a = sim.snapshot(asker), b = sim.snapshot(other);
+  assert.equal(a.action, "talk", "talking");
+  assert.ok(Math.hypot(a.x - od.approach.x, a.z - od.approach.z) < 0.7, "standing at her desk");
+  assert.ok(angleGap(a.heading, Math.PI / 2) < 0.1, "facing the desk");
+  assert.equal(b.action, "type", "she works on the answer");
+  assert.equal(b.mode, "seated");
+  run(sim, 45, { [asker]: busyAsker });                                        // the answer is back: he returns to his desk
+  const back = sim.snapshot(asker), d = C.deskOf(asker);
+  assert.equal(back.action, "type");
+  assert.ok(Math.hypot(back.x - d.seat.x, back.z - d.seat.z) < 0.05, "back in his own chair");
+});
+
+test("sim: two visitors at one desk stand apart; a visit to oneself or to nobody is ignored", () => {
+  const sim = C.createSim({ ids: AGENT_IDS, seed: 2 });
+  run(sim, 10);
+  run(sim, 50, { engineer: { busy: true, visit: "qa" }, devops: { busy: true, visit: "qa" }, qa: { busy: true } });
+  const a = sim.snapshot("engineer"), b = sim.snapshot("devops");
+  assert.ok(Math.hypot(a.x - b.x, a.z - b.z) >= 0.4, "not on top of each other");
+  const still = C.createSim({ ids: AGENT_IDS, seed: 2 });
+  run(still, 30, { engineer: { busy: true, visit: "engineer" }, brand: { busy: true, visit: "nobody" } });
+  assert.equal(still.snapshot("engineer").action, "type");
+  assert.equal(still.snapshot("brand").action, "type");
+});

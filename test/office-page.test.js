@@ -41,7 +41,12 @@ test("the modules load (no DOM, no THREE needed at load time) and export what th
 });
 
 test("the page hands the office what it needs: who is working, what they are doing, who is being chatted with", () => {
-  assert.match(html, /function officeState\(id\) \{[\s\S]*busy: busy\.has\(id\)[\s\S]*status: last\?\.pending \? last\.status : null[\s\S]*selected: state\.current === id/);
+  const fn = /function officeState\(id\) \{[\s\S]*?\n\}\n/.exec(html)?.[0] ?? "";
+  assert.match(fn, /busy: busy\.has\(id\)/);
+  assert.match(fn, /last\?\.pending \? last\.status : null/);
+  assert.match(fn, /selected: state\.current === id/);
+  assert.match(fn, /visit: visit\?\.to \?\? null/, "who they are visiting to ask a question");
+  assert.match(html, /ev\.type === "consult"/, "the stream's consult events reach the office");
   assert.match(html, /onSelect: \(id\) => open\(id\)/);
   assert.match(html, /createOffice\(\{\s*THREE: window\.THREE, host: \$\("of-view"\), agents: AGENTS/);
 });

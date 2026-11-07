@@ -27,6 +27,28 @@ function logLine(env, ctx, event) {
   }).catch(() => {}));  // a lost log line never breaks an answer
 }
 
+const MAX_TEAM_BODY = 150_000; // a project: the goal and the finished work of earlier steps (src/team.js LIMITS.body)
+
+// A team run only runs on the backend (a whole project is minutes of work: no fallback here); the Worker checks and rate-limits, then streams the events through.
+async function forwardTeam(request, text, env, ctx, { cors, reply, who, started }) {
+  if (!env.BACKEND_URL || !env.BACKEND_SECRET) return reply({ error: "proyek tim belum tersedia" }, 503);
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), Number(env.BACKEND_CONNECT_MS) || 10_000);
+  try {
+    const res = await fetch(env.BACKEND_URL.replace(/\/agent\/?$/, "/team"), { method: "POST", headers: { "Content-Type": "application/json", "x-pro-secret": env.BACKEND_SECRET }, body: text, signal: ac.signal });
+    clearTimeout(t);
+    if (res.ok && res.body) {
+      logLine(env, ctx, { ...who, kind: "team", via: "backend", ms: Date.now() - started });
+      return new Response(res.body, { headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+    }
+    if (res.status === 400 || res.status === 413) return reply(await res.json().catch(() => ({ error: "permintaan tidak valid" })), res.status);
+    return reply({ error: "backend tidak menjawab" }, 502);
+  } catch (e) {
+    clearTimeout(t);
+    return reply({ error: "backend tidak bisa dihubungi" }, 502);
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const started = Date.now();
@@ -51,15 +73,20 @@ export default {
 
     if (request.method === "OPTIONS") return new Response(null, { status: originOk ? 204 : 403, headers: cors });
     if (!originOk) return reply({ error: "forbidden" }, 403);
-    if (u.pathname !== "/agent" || request.method !== "POST") return reply({ error: "not found" }, 404);
+    const team = u.pathname === "/team";
+    if ((u.pathname !== "/agent" && !team) || request.method !== "POST") return reply({ error: "not found" }, 404);
 
     // Each question costs islam-gpt.org calls and a search: a few a minute from one IP address, and a ceiling for everybody together.
-    if (env.LIMITER && !(await env.LIMITER.limit({ key: who.ip || "unknown" })).success) return reply({ error: "too many questions, wait a minute" }, 429);
+    // a team run is minutes of work and many model calls: its own, tighter limit per IP address
+    if (team && env.LIMITER_TEAM && !(await env.LIMITER_TEAM.limit({ key: who.ip || "unknown" })).success) return reply({ error: "terlalu banyak proyek, tunggu semenit" }, 429);
+    if (!team && env.LIMITER && !(await env.LIMITER.limit({ key: who.ip || "unknown" })).success) return reply({ error: "too many questions, wait a minute" }, 429);
     if (env.LIMITER_ALL && !(await env.LIMITER_ALL.limit({ key: "all" })).success) return reply({ error: "busy, try again in a minute" }, 429);
 
-    if (Number(request.headers.get("Content-Length") || 0) > MAX_BODY) return reply({ error: "too large" }, 413);
+    const maxBody = team ? MAX_TEAM_BODY : MAX_BODY;
+    if (Number(request.headers.get("Content-Length") || 0) > maxBody) return reply({ error: "too large" }, 413);
     const text = await request.text().catch(() => "");
-    if (text.length > MAX_BODY) return reply({ error: "too large" }, 413);
+    if (text.length > maxBody) return reply({ error: "too large" }, 413);
+    if (team) return forwardTeam(request, text, env, ctx, { cors, reply, who, started });
     let body;
     try {
       body = parseAgentBody(text);

@@ -58,8 +58,10 @@ export function parseToolCall(text) {
   const found = findToolCall(text);
   if (!found) return null;
   try {
-    const { name, args } = JSON.parse(found.json);
-    return typeof name === "string" ? { name, args: args ?? {} } : null;
+    const obj = JSON.parse(found.json);
+    if (typeof obj.name === "string") return { name: obj.name, args: obj.args ?? {} };
+    if (typeof obj.colleague === "string" && typeof obj.question === "string") return { name: "ask_colleague", args: obj }; // a small model writes just the arguments it was shown
+    return null;
   } catch {
     return null;
   }
@@ -105,7 +107,7 @@ export function extractMockups(reply) {
  * A reply that was cut off inside a document, a mockup or a code fence is carried on: the model is asked to continue from the last character
  * (src/continue.js) until the block is closed, up to MAX_PARTS parts. If a continuation fails, what was written so far is kept.
  */
-async function finishReply(first, request, chatFn, opts, { onToolStart, onTool }) {
+export async function finishReply(first, request, chatFn, opts, { onToolStart, onTool } = {}) {
   let text = first.text;
   for (let part = 2; part <= MAX_PARTS && text.length < MAX_CHARS; part++) {
     const kind = openBlock(text);

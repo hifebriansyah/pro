@@ -81,6 +81,21 @@ node bin/proxy.js                          # the same /agent on 127.0.0.1:8787, 
 
 `show_image` finds one existing photo on Wikimedia Commons (free, no key, licensed) and shows it under the reply. It searches for a photo, it never generates one.
 
+## The team working together
+
+Two layers, both on the backend (the Worker only checks and rate-limits), built on the current free sources (islam-gpt, quran-gpt) behind the existing provider switch, so another model is one more provider later.
+
+**Ask a colleague.** While answering, a professional can put one specific question to another (`ask_colleague`, `src/colleagues.js`): Bima asks Sinta which cases matter most. The colleague answers briefly from their own persona and cannot ask anybody else (one level deep), and at most two questions per answer. The page gets `consult` events; in the office the asker walks to the colleague's desk and talks while the colleague works on the answer. The backend ships `personas/*.md` for this (`src/personas-fs.js`, `src/roster.js`); the Worker's own fallback has no colleagues. A small model sometimes writes only the arguments, which the parser accepts.
+
+**Team projects** (`POST /team`, `src/team.js`, `src/playbooks.js`). A goal goes through a *playbook*: a fixed list of steps, each a professional writing one deliverable.
+- **Software feature:** Raka (PRD), Nadia (user stories), Kirana (mockup), Bima (technical plan and code skeleton), Sinta (test plan and review), Citra (delivery summary). **Campaign:** Arya, Laras, Salsa, Tara, Bayu, Rendra (the analyst reviews the copy). The order is data, not something the model invents: free models are poor at planning, good enough at writing one document with a clear contract.
+- **A step** gets the persona, the goal, its task, the handoff notes of the steps before, the full text of the few it `uses` (shortened; a mockup is summarised by its note) and an output contract: `<document>` or `<mockup>`, then `<handoff>` (at most 80 words), and for a review `<verdict>approved|changes</verdict>`. Cut-off documents are carried on like in a chat; a missing handoff note is made from the text; a plain-text answer is kept as the document; a bad answer is retried once.
+- **A review** that asks for changes sends the author back once with its list and the earlier version, then looks again; a second "changes" is final and the project goes on.
+- **Events** (SSE): `plan`, `step` (start, part, end), `artifact`, `handoff`, `review`, `paused`, `done`, then `end`. The client keeps every result and sends the finished ones back: a run **resumes** from there, and `only` + `feedback` redo one step with the client's comment.
+- **Limits:** at most 18 model calls and about 270 s per request (the Vercel function allows 300), then `paused` ("time" or "calls") and the page continues; a step that fails twice stops the run with everything before it kept. The Worker gives `/team` its own limit (3 starts a minute per IP, `LIMITER_TEAM`) and a 150 KB body, and has no fallback: no backend, no project.
+- **Live check** (quran-gpt, the real personas and skills): a six-step software project in about a minute, a campaign likewise. Honest limits of the small free model: the documents are short (about 2 to 3 thousand characters), the handoff notes are fairly generic, and the reviewer tends to approve; the revision loop is covered by tests with a fake model. A stronger model is a one-line provider change later.
+- **Not built yet:** the project screen in the page (plan approval, the live timeline, the artifact board). Until then `/team` is an API.
+
 ## The virtual office (Kantor)
 
 The **Kantor** button in the chat list opens a 3D office (three.js) where the 13 professionals are low-poly people, drawn after their photos (hair, skin, glasses, jacket; `LOOKS` in `office/core.js`). It is a way to see the team and to chat: click a person, or their name in the team bar, and the chat docks beside the office (full screen on a phone, with the arrow back to the office).

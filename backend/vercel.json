@@ -1,4 +1,10 @@
 {
-  "functions": { "api/agent.js": { "maxDuration": 300, "includeFiles": "skills/**" } },
-  "rewrites": [{ "source": "/agent", "destination": "/api/agent" }]
+  "functions": {
+    "api/agent.js": { "maxDuration": 300, "includeFiles": "{skills,personas}/**" },
+    "api/team.js": { "maxDuration": 300, "includeFiles": "{skills,personas}/**" }
+  },
+  "rewrites": [
+    { "source": "/agent", "destination": "/api/agent" },
+    { "source": "/team", "destination": "/api/team" }
+  ]
 }

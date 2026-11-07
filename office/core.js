@@ -254,6 +254,18 @@ export function createSim({ ids, seed = 7, wander = true }) {
     const to = a.approach ?? { x: a.x, z: a.z };
     slideTo(a, to, a.heading, a.sit, 0, "slideOut", () => { a.mode = "stand"; a.timer = 0.4; a.action = "idle"; a.then = null; if (then) then(); });
   };
+  // standing places at somebody's desk: behind their chair, and a step to either side for a second and a third visitor (each claimed, so two never share one)
+  const VISIT_SLOTS = [0, 0.5, -0.5];
+  const goVisit = (a, toId) => {
+    release(a);
+    a.goal = "visit:" + toId; a.atPlace = false;
+    const base = desks[toId]?.approach;
+    if (!base) return;
+    let slot = VISIT_SLOTS.findIndex((dz, i) => !taken.has(`visit:${toId}:${i}`) && isFree(grid, base.x, base.z + dz));
+    if (slot < 0) slot = 0;
+    a.poi = `visit:${toId}:${slot}`; taken.set(a.poi, a.id);
+    startRoute(a, { x: base.x, z: base.z + VISIT_SLOTS[slot] }, () => { a.mode = "stand"; a.action = "talk"; a.atPlace = true; a.faceTo = PI / 2; a.timer = Infinity; });
+  };
   const goDesk = (a) => {
     const d = desks[a.id];
     release(a);
@@ -321,19 +333,24 @@ export function createSim({ ids, seed = 7, wander = true }) {
     } else { a.speed = 0; }
 
     // 2. what to do next
-    if (inp.busy) {
-      if (a.goal !== "work") {
+    const visiting = inp.visit && inp.visit !== a.id && desks[inp.visit] ? inp.visit : null; // an answer in flight that needs a word with a colleague
+    if (inp.busy || visiting) {
+      const want = visiting ? "visit:" + visiting : "work";
+      if (a.goal !== want) {
         const wasMoving = a.mode === "walk";
-        a.goal = "work"; a.atPlace = false;
-        if (a.mode === "seated" && a.poi === "desk:" + a.id) { /* already at the desk */ }
-        else if (a.mode === "seated") { release(a); a.poi = null; standUp(a, () => goDesk(a)); }
-        else if (a.mode === "slideIn") { const keep = a.then; a.then = () => { keep?.(); release(a); standUp(a, () => goDesk(a)); }; }
-        else if (a.mode === "walk" || a.mode === "stand") { if (wasMoving) a.path = []; goDesk(a); }
-        else if (a.mode === "slideOut") { a.then = ((f) => () => { f?.(); goDesk(a); })(a.then); }
+        const go = () => (visiting ? goVisit(a, visiting) : goDesk(a));
+        a.goal = want; a.atPlace = false;
+        if (a.mode === "seated" && a.poi === "desk:" + a.id && !visiting) { /* already at the desk */ }
+        else if (a.mode === "seated") { release(a); a.poi = null; standUp(a, go); }
+        else if (a.mode === "slideIn") { const keep = a.then; a.then = () => { keep?.(); release(a); standUp(a, go); }; }
+        else if (a.mode === "walk" || a.mode === "stand") { if (wasMoving) a.path = []; go(); }
+        else if (a.mode === "slideOut") { a.then = ((f) => () => { f?.(); go(); })(a.then); }
       }
-      if (a.mode === "seated" && a.poi === "desk:" + a.id) a.action = "type";
+      if (visiting && a.mode === "stand" && a.atPlace) { a.action = "talk"; a.heading = turnToward(a.heading, a.faceTo ?? PI / 2, 5 * dt); }
+      if (!visiting && a.mode === "seated" && a.poi === "desk:" + a.id) a.action = "type";
       return;
     }
+    if (a.goal?.startsWith("visit:")) { release(a); a.goal = null; a.atPlace = false; a.timer = 0.6; a.action = "idle"; } // the visit is over
     if (a.goal === "work") { // the answer is done: stay at the desk a moment (the page shows "done"), then carry on
       a.goal = null;
       if (a.mode === "seated" && a.poi === "desk:" + a.id) { a.action = "sit"; a.timer = a.after; }
