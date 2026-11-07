@@ -14,7 +14,7 @@
 import { MAX_BODY, parseAgentBody, runAgent } from "../src/serve.js";
 import { skillsFromList } from "../src/skills.js";
 import { handlePublish, servePage } from "./publish.js";
-import { runDeepseek } from "../src/deepseek.js";
+import { MODELS, runModel } from "../src/workersai.js";
 
 // Filled in by tools/deploy_worker.py from skills/*/SKILL.md: [{name, description, triggers, body}]
 const SKILLS = __SKILLS__;
@@ -83,15 +83,15 @@ export default {
 
     // a published page is for anybody (no origin check): it is served sandboxed, see worker/publish.js
     if (request.method === "GET" && u.pathname.startsWith("/p/")) return (await servePage(u.pathname, env)) || new Response("not found", { status: 404 });
-    // POST /llm {prompt} -> {text}: DeepSeek for the backend (src/deepseek.js), through the AI binding and the gateway (paid from credit, never neurons).
+    // POST /llm {prompt, model: "deepseek"|"qwen"} -> {text}: a Workers AI model for the backend (src/workersai.js), through the AI binding and the gateway (paid from credit, never neurons).
     // Server to server: no origin, only the shared secret.
     if (u.pathname === "/llm" && request.method === "POST") {
       if (!env.AI || !env.BACKEND_SECRET || !sameSecret(request.headers.get("x-pro-secret"), env.BACKEND_SECRET)) return reply({ error: "unauthorized" }, 401);
-      const { prompt } = await request.json().catch(() => ({}));
-      if (typeof prompt !== "string" || !prompt.trim()) return reply({ error: "need JSON {prompt}" }, 400);
+      const { prompt, model = "deepseek" } = await request.json().catch(() => ({}));
+      if (typeof prompt !== "string" || !prompt.trim() || !Object.hasOwn(MODELS, model)) return reply({ error: "need JSON {prompt, model}" }, 400);
       try {
-        const text = await runDeepseek(env.AI, prompt);
-        logLine(env, ctx, { ...who, kind: "llm", chars: text.length, ms: Date.now() - started });
+        const text = await runModel(env.AI, model, prompt);
+        logLine(env, ctx, { ...who, kind: "llm", model, chars: text.length, ms: Date.now() - started });
         return new Response(JSON.stringify({ text }), { headers: { "Content-Type": "application/json" } });
       } catch (e) {
         return reply({ error: String(e?.message || e).slice(0, 200) }, 502);

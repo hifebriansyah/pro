@@ -11,6 +11,7 @@
 import { extractDocuments, extractMockups, finishReply } from "./agent.js";
 import { PLAYBOOKS, stepById, suggestPlaybook } from "./playbooks.js";
 import { PROVIDERS } from "./quran.js";
+import { AI_PROVIDERS } from "./workersai.js";
 import { ROSTER, byId } from "./roster.js";
 import { testPage as runPageTest } from "./pagetest.js";
 import { applyEdits, bareCode, checkPage, ensureThree, keptPage, lastScript, markupWarnings, outlineOf, parseEdits, repairPage, replaceLastScript, sceneContainer, threeStarter, wantsThree } from "./pagecode.js";
@@ -19,6 +20,7 @@ export const LIMITS = { goal: 2000, note: 800, artifact: 60_000, feedback: 1500,
 export const BUDGET = { maxCalls: 18, maxMs: 270_000, firstStepMs: 40_000 }; // a Vercel Function may run 300 s: stop with room to spare
 const INPUT_CHARS = 16_000;      // all the documents a step "uses", together (a page it works on comes in full, on top of this). The free model gives up after
                                  // about 60 seconds (HTTP 504), so the prompt and above all the answer must stay modest.
+const ROOMY_INPUT_CHARS = 48_000; // the same for a source without the minute's limit (DeepSeek: a 1M-token context, about 25,000 characters per answer)
 const PREVIOUS_CHARS = 12_000;   // the earlier version of a document, when it is being revised
 const FILE_CHARS = 40_000;       // a whole HTML file: the page an engineer works on, or his previous version of it
 const FIX_ROUNDS = 2;            // a finished page whose code does not work goes back to its author this many times at most
@@ -75,12 +77,14 @@ export function splitChanges(changes) {
   return { design: design.join("\n"), code: code.join("\n") };
 }
 
-export function buildStepPrompt({ step, goal, results, persona, skill, revision, reviewing, playbook, compact = false, qaNotes = "" }) {
+// roomy: the source has no one-minute limit (DeepSeek), so the steps see more of the earlier work and a page has no size cap.
+export function buildStepPrompt({ step, goal, results, persona, skill, revision, reviewing, playbook, compact = false, qaNotes = "", roomy = false }) {
   const me = byId(step.agent);
   const team = ROSTER.map((p) => `${p.name} (${p.role})`).join(", ");
   const earlier = playbook.steps.filter((s) => results.has(s.id) && s.id !== step.id);
   const notes = earlier.map((s) => `- ${byId(s.agent).name} (${s.title}): ${results.get(s.id).note || "(tanpa catatan)"}`).join("\n");
-  const per = Math.max(1500, Math.floor((compact ? INPUT_CHARS / 2 : INPUT_CHARS) / Math.max(1, step.uses.length)));
+  const input = roomy ? ROOMY_INPUT_CHARS : INPUT_CHARS;
+  const per = Math.max(1500, Math.floor((compact ? input / 2 : input) / Math.max(1, step.uses.length)));
   if (compact) skill = ""; // the retry after a timeout: the format is still stated below, the long skill text is left out
   const inputs = step.uses.filter((id) => results.has(id)).map((id) => {
     const r = results.get(id), s = stepById(playbook, id), a = r.artifact;
@@ -128,7 +132,7 @@ export function buildStepPrompt({ step, goal, results, persona, skill, revision,
   const tag = step.kind === "mockup" ? '<mockup title="...">...a complete HTML page...</mockup>' : '<document title="...">...Markdown...</document>';
   lines.push([
     "HOW TO ANSWER",
-    `1. Write the deliverable as ONE ${tag}. It is the main thing: start with it, no preamble, no questions back. Make it thorough and specific: real names, numbers and examples, ${step.kind === "mockup" ? "a complete screen" : "about 600 to 900 words"}.${step.maxChars ? ` The whole file must stay under about ${step.maxChars.toLocaleString("en")} characters: you have about one minute to write it.` : ""}`,
+    `1. Write the deliverable as ONE ${tag}. It is the main thing: start with it, no preamble, no questions back. Make it thorough and specific: real names, numbers and examples, ${step.kind === "mockup" ? "a complete screen" : "about 600 to 900 words"}.${step.maxChars && !roomy ? ` The whole file must stay under about ${step.maxChars.toLocaleString("en")} characters: you have about one minute to write it.` : ""}`,
     "2. Right after it write <handoff>...</handoff>: one short paragraph (at most 80 words) for the next person. Give the concrete decisions you made (choices, names, numbers) and what they must do or avoid. No generic reminders such as \"make sure to verify\".",
     step.gate ? "3. Then give your decision: <verdict>approved</verdict> or <verdict>changes</verdict> followed by <changes>- one required change per line</changes>. Be a demanding reviewer: approve only if you would let the team start building from this today, and name the exact gap in every change you ask for." : "",
     step.gate && stepById(playbook, step.gate.of)?.edits ? `   Start every change line with who must fix it: [desain] for the look, layout, sections, copy or markup (${byId(stepById(playbook, stepById(playbook, step.gate.of).edits).agent).name}, the designer), or [kode] for behaviour, the script, the form logic or an error in the test run (${byId(stepById(playbook, step.gate.of).agent).name}, the engineer).` : "",
@@ -168,6 +172,9 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
   const summary = { playbook: playbook.id, steps: 0, calls: 0, revisions: 0, artifacts: 0, paused: null, failed: null };
   const t0 = now();
   const stepTimes = [];
+  // islam-gpt and quran-gpt give up after about a minute, so a page is written in two halves and kept small; the Workers AI models (DeepSeek, Qwen) have
+  // no such limit: one go, no cap
+  const roomy = AI_PROVIDERS.includes(body.provider);
   // the skills are written for the chat, where an answer may run as long as it needs (it is continued when cut off). A project step has to finish inside
   // one model call, so the "no size limit, aim for 8,000+ characters" rule is taken out, and the step's own size is stated instead.
   const skillText = (kind) => String(skills.get(kind === "mockup" ? "mockup-html" : "writing-md")?.body ?? "").split("\n").filter((l) => !/^- \*\*No size limit/.test(l.trim())).join("\n");
@@ -184,8 +191,8 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
       if (signal?.aborted) return null;
       send({ type: "step", phase: "start", ...info, attempt });
       try {
-        if (step.parts === 2 && !editsFile(step, extra.revision)) { const page = await inParts(step, info, persona, { ...extra, compact }); if (page) return page; throw new Error("halaman tidak terbaca"); }
-        const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra, compact });
+        if (step.parts === 2 && !roomy && !editsFile(step, extra.revision)) { const page = await inParts(step, info, persona, { ...extra, compact }); if (page) return page; throw new Error("halaman tidak terbaca"); }
+        const prompt = buildStepPrompt({ roomy, step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra, compact });
         summary.calls++;
         let reply = await chatFn(prompt, { signal });
         reply = await finishReply(reply, `${step.title}: ${step.task}`.slice(-1500), chatFn, { signal }, { onToolStart: () => send({ type: "step", phase: "part", ...info }), onTool: () => { summary.calls++; } });
@@ -274,7 +281,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
   /** A new page, written in two halves (about 4,000 characters each), because the free model gives up after about a minute and a whole page often takes
    *  longer. The second half is written seeing the first, so it continues in the same style. A second half that fails leaves the first half, closed. */
   const inParts = async (step, info, persona, extra) => {
-    const full = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra });
+    const full = buildStepPrompt({ roomy, step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra });
     summary.calls++;
     let reply = await chatFn(full + "\n\nTHIS PAGE IS WRITTEN IN TWO PARTS, so each answer finishes in time. Now write ONLY PART 1: <mockup title=\"...the page's name...\"> and then the file from <!doctype html>: the complete <head> (Tailwind with its config, fonts, a short <style> if needed), then the body: the header and the first sections of the brief's SECTIONS list, in its order, about half of the page (about 4,000 characters). End PART 1 with the line <!-- BAGIAN 2 --> and stop there: no closing tags, no handoff.", { signal });
     const t1 = String(reply.text ?? "");
@@ -287,7 +294,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     let second = "", note = "";
     try {
       summary.calls++;
-      const short = buildStepPrompt({ step, goal: body.goal, results, persona, skill: "", playbook, ...extra, compact: true });
+      const short = buildStepPrompt({ roomy, step, goal: body.goal, results, persona, skill: "", playbook, ...extra, compact: true });
       reply = await chatFn(`${short}\n\nPART 1 OF THE PAGE IS DONE (below). Now write ONLY PART 2, continuing right after it: the rest of the brief's SECTIONS list (every section part 1 does not have yet, in the brief's order), then the footer and </body></html>. Use the same Tailwind classes, colours and components as part 1; do not repeat the head or a section that is already there. Answer with the HTML of part 2 only (no <mockup> tag), then <handoff>...</handoff> for the whole page.\n\nPART 1\n${first}`, { signal });
       const t2 = String(reply.text ?? "");
       note = /<handoff>([\s\S]*?)(?:<\/handoff>|$)/i.exec(t2)?.[1]?.trim() ?? "";
@@ -304,7 +311,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     if (signal?.aborted) return null;
     try {
       send({ type: "step", phase: "part", ...info });
-      const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook }) +
+      const prompt = buildStepPrompt({ roomy, step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook }) +
         `\n\nYOUR DRAFT BELOW IS TOO SHORT AND TOO SIMPLE (${parsed.artifact.content.length} characters; the real deliverable needs at least ${step.minChars}). Write the complete, richer version now: every section fully built with the real content, polished styling, nothing left as a sketch or a placeholder. Same format and tags as before.\n\nYOUR DRAFT\n${cut(parsed.artifact.content, PREVIOUS_CHARS)}`;
       summary.calls++;
       let reply = await chatFn(prompt, { signal });

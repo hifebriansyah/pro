@@ -13,7 +13,8 @@ const DOC = (title, prompt) => `<document title="${title}">\n# ${title}\n${"isi 
 async function run(reply, opts = {}) {
   const prompts = [], events = [];
   const chatFn = async (prompt) => { prompts.push(prompt); const title = /YOUR TASK: (.+)/.exec(prompt)?.[1] ?? "?"; return { text: await reply(title, prompt, prompts) }; };
-  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page bengkel motor di Bekasi", playbook: "website", provider: "quran" })), { send: (e) => events.push(e), chatFn, personas, skills: new Map(), testPage: noTest, ...opts });
+  const { provider = "quran", ...rest } = opts;
+  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page bengkel motor di Bekasi", playbook: "website", provider })), { send: (e) => events.push(e), chatFn, personas, skills: new Map(), testPage: noTest, ...rest });
   return { prompts, events, artifacts: (id) => events.filter((e) => e.type === "artifact" && e.id === id) };
 }
 
@@ -106,4 +107,21 @@ test("a code-only point from QA goes straight back to the engineer, who changes 
 
 test("QA labels for content, layout or accessibility go to the designer too", () => {
   assert.deepEqual(splitChanges("- [testimoni] Verifikasi keaslian testimoni\n- [aksesibilitas] Kontras tombol kurang\n- [kode] Link #contact rusak"), { design: "- Verifikasi keaslian testimoni\n- Kontras tombol kurang", code: "- Link #contact rusak" });
+});
+
+test("DeepSeek and Qwen (no one-minute limit): the page is written in one go, with no size cap, and the steps see more of the earlier work", async () => {
+  const { prompts, artifacts } = await run((title, prompt) => {
+    if (title === "Halaman landing page") return `<mockup title="Bengkel Jaya">${TOP}${BOTTOM}</mockup><handoff>Satu kali tulis.</handoff>`;
+    if (title === "Halaman jadi dengan JavaScript") return `<document title="script.js">document.addEventListener("DOMContentLoaded", () => {});</document><handoff>n.</handoff>`;
+    return DOC(title, prompt);
+  }, { provider: "deepseek" });
+  assert.ok(!prompts.some((p) => /ONLY PART [12]/.test(p)), "no halves");
+  const pagePrompt = prompts.find((p) => /YOUR TASK: Halaman landing page/.test(p));
+  assert.doesNotMatch(pagePrompt, /about one minute/);
+  const page = artifacts("page")[0];
+  assert.ok(page.content.includes('<section id="hero">') && page.content.includes('<form id="booking">'));
+  assert.equal(page.note, "Satu kali tulis.");
+
+  const quran = await run((title, prompt) => /ONLY PART 1/.test(prompt) ? `<mockup title="B">${TOP}<!-- BAGIAN 2 -->` : /ONLY PART 2/.test(prompt) ? `${BOTTOM}<handoff>n.</handoff>` : DOC(title, prompt));
+  assert.match(quran.prompts.find((p) => /ONLY PART 1/.test(p)), /about one minute/, "the free sources keep the cap");
 });

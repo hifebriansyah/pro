@@ -3,7 +3,7 @@
 // An IP allow-list would not do: a Worker's requests leave from Cloudflare addresses that other customers' Workers share, and Hobby has no firewall list.
 import { chatBuffered as islamChat, randomDeviceId } from "./islam.js";
 import { quranChat } from "./quran.js";
-import { deepseekChat } from "./deepseek.js";
+import { AI_PROVIDERS, aiChat } from "./workersai.js";
 import { MAX_BODY, parseAgentBody, runAgent } from "./serve.js";
 import { LIMITS, parseTeamBody, runTeam } from "./team.js";
 import { skillsFromList } from "./skills.js";
@@ -62,7 +62,7 @@ export async function backendTeam(request, env, { skills = [], personas, chatFn 
   try { body = parseTeamBody(text); } catch (e) { return json({ error: e.message }, 400); }
 
   const deviceId = randomDeviceId(); // one anonymous id for the whole run
-  const chat = chatFn ?? (body.provider === "quran" ? quranChat : body.provider === "deepseek" ? (q, o) => deepseekChat(q, { ...o, env }) : (q, o) => islamChat(q, { ...o, deviceId }));
+  const chat = chatFn ?? (body.provider === "quran" ? quranChat : AI_PROVIDERS.includes(body.provider) ? (q, o) => aiChat(body.provider)(q, { ...o, env }) : (q, o) => islamChat(q, { ...o, deviceId }));
   const enc = new TextEncoder();
   const ac = new AbortController();
   const list = skillsFromList(skills);
