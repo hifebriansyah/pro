@@ -191,6 +191,26 @@ export function findPath(g, from, to) {
   return out;
 }
 
+// ---- zooming towards the cursor
+/**
+ * The camera looks at a target from a distance d, at azimuth az and elevation el. The point of the floor under the cursor (nx, ny in -1..1 on the
+ * screen) is  target + d * k : it grows with the distance, because the view direction through the cursor does not depend on the target.
+ * So to zoom from d0 to d1 and keep that point where it is, move the target by (d0 - d1) * k. Returns k as {x, z}, or null when the cursor is above the horizon.
+ */
+export function anchorShift(az, el, fovDeg, aspect, nx, ny) {
+  const u = [Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)]; // from the target towards the camera
+  const f = u.map((v) => -v);
+  let right = [-f[2], 0, f[0]];                                                          // forward x up
+  const rl = Math.hypot(...right);
+  right = right.map((v) => v / rl);
+  const up = [right[1] * f[2] - right[2] * f[1], right[2] * f[0] - right[0] * f[2], right[0] * f[1] - right[1] * f[0]]; // right x forward
+  const t = Math.tan((fovDeg * PI) / 360);
+  const dir = f.map((v, i) => v + right[i] * nx * t * aspect + up[i] * ny * t);
+  if (dir[1] > -0.05) return null;
+  const m = -u[1] / dir[1];
+  return { x: u[0] + dir[0] * m, z: u[2] + dir[2] * m };
+}
+
 // ---- the simulation
 export function mulberry32(seed) {
   let a = seed >>> 0;

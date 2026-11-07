@@ -148,3 +148,32 @@ test("sim: the same seed gives the same office; wandering can be switched off", 
   run(still, 40, { engineer: { busy: true } });
   assert.equal(still.snapshot("engineer").action, "type", "but still goes to work when asked");
 });
+
+test("zoom towards the cursor: the spot of the floor under the cursor does not move while the distance changes", () => {
+  // an independent check: where does the ray through the cursor meet the floor plane of the target, for a camera at (target, distance)?
+  const hit = (T, d, az, el, fov, aspect, nx, ny) => {
+    const u = [Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)];
+    const C = [T.x + d * u[0], T.y + d * u[1], T.z + d * u[2]];
+    const f = u.map((v) => -v), r = [-f[2], 0, f[0]], rl = Math.hypot(...r), R = r.map((v) => v / rl);
+    const U = [R[1] * f[2] - R[2] * f[1], R[2] * f[0] - R[0] * f[2], R[0] * f[1] - R[1] * f[0]], t = Math.tan((fov * Math.PI) / 360);
+    const dir = f.map((v, i) => v + R[i] * nx * t * aspect + U[i] * ny * t);
+    const m = (T.y - C[1]) / dir[1];
+    return { x: C[0] + dir[0] * m, z: C[2] + dir[2] * m };
+  };
+  let n = 0;
+  for (const [az, el] of [[0.74, 0.62], [0.3, 0.4], [1.3, 1.1]]) for (const aspect of [0.56, 1.3, 1.78]) for (const [nx, ny] of [[0, 0], [0.7, -0.5], [-0.9, -0.8], [0.4, 0.2], [-0.5, -0.1]]) {
+    const k = C.anchorShift(az, el, 34, aspect, nx, ny);
+    if (!k) continue;
+    const T0 = { x: 3, y: 0.4, z: -2 }, d0 = 60, d1 = 35;
+    const before = hit(T0, d0, az, el, 34, aspect, nx, ny);
+    const T1 = { x: T0.x + (d0 - d1) * k.x, y: T0.y, z: T0.z + (d0 - d1) * k.z };
+    const after = hit(T1, d1, az, el, 34, aspect, nx, ny);
+    assert.ok(Math.hypot(before.x - after.x, before.z - after.z) < 1e-9, `az ${az} el ${el} aspect ${aspect} cursor ${nx},${ny}`);
+    n++;
+  }
+  assert.ok(n >= 30, "many cases were checked");
+  assert.deepEqual(C.anchorShift(0.74, 0.3, 34, 1.5, 0, 0.99), C.anchorShift(0.74, 0.3, 34, 1.5, 0, 0.99));
+  assert.equal(C.anchorShift(0.74, 0.1, 34, 1.5, 0, 1), null, "a cursor above the horizon has no point of the floor: the zoom stays centred");
+  const centre = C.anchorShift(0.74, 0.62, 34, 1.5, 0, 0);
+  assert.ok(Math.abs(centre.x) < 1e-12 && Math.abs(centre.z) < 1e-12, "at the centre of the screen the target does not need to move");
+});

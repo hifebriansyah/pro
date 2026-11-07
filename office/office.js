@@ -1,7 +1,7 @@
 // The office on the page: a canvas with the 3D scene, a name tag over every person (real buttons, so the keyboard and screen readers work too),
 // a camera you can turn and zoom, and the loop that moves everybody. The page gives it the professionals and a getState(id) that says who is busy
 // writing an answer and who is being chatted with; it calls onSelect(id) when somebody is clicked.
-import { createSim, FLOOR, LOOKS } from "./core.js";
+import { anchorShift, createSim, FLOOR, LOOKS } from "./core.js";
 import { buildCharacter, buildWorld, poseCharacter } from "./scene.js";
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -122,6 +122,20 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
     cam.want.target.x = clamp(cam.want.target.x - Math.cos(az) * dx * perPx - Math.sin(az) * dy * perPx / Math.sin(el), -13, 13);
     cam.want.target.z = clamp(cam.want.target.z + Math.sin(az) * dx * perPx - Math.cos(az) * dy * perPx / Math.sin(el), -8.5, 8.5);
   };
+  // zoom towards a point of the screen (the cursor or the pinch), like Figma: the spot under it stays where it is. Not while you chat with someone: the camera stays on them.
+  const zoomAt = (factor, cx, cy) => {
+    const next = clamp(cam.want.zoom * factor, ZOOM[0], ZOOM[1]);
+    if (!selected && next !== cam.want.zoom) {
+      const r = canvas.getBoundingClientRect();
+      const k = anchorShift(cam.want.az, cam.want.el, camera.fov, camera.aspect, ((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+      if (k) {
+        const gap = cam.fit * cam.want.zoom - cam.fit * next;
+        cam.want.target.x = clamp(cam.want.target.x + gap * k.x, -13, 13);
+        cam.want.target.z = clamp(cam.want.target.z + gap * k.z, -8.5, 8.5);
+      }
+    }
+    cam.want.zoom = next; userMoved = true;
+  };
   const pointers = new Map();
   let drag = null, pinch = 0, userMoved = false;
   canvas.addEventListener("pointerdown", (e) => {
@@ -136,7 +150,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
     if (pointers.size === 2) {
       p.px = p.x; p.py = p.y; p.x = e.clientX; p.y = e.clientY;
       const [a, b] = [...pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch) { cam.want.zoom = clamp(cam.want.zoom * (pinch / d), ZOOM[0], ZOOM[1]); userMoved = true; }
+      if (pinch) zoomAt(pinch / d, (a.x + b.x) / 2, (a.y + b.y) / 2);
       if (!selected && pointers.size === 2) panBy((e.clientX - p.px) / 2, (e.clientY - p.py) / 2);
       pinch = d;
       return;
@@ -163,7 +177,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
   canvas.addEventListener("pointerup", up);
   canvas.addEventListener("pointercancel", up);
   canvas.addEventListener("pointerleave", () => { if (!pointers.size) hovered = null; });
-  canvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.want.zoom = clamp(cam.want.zoom * Math.exp(e.deltaY * 0.0012), ZOOM[0], ZOOM[1]); userMoved = true; }, { passive: false });
+  canvas.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(Math.exp(e.deltaY * 0.0012), e.clientX, e.clientY); }, { passive: false });
   canvas.addEventListener("contextmenu", (e) => e.preventDefault()); // a right-button drag pans: no browser menu
   canvas.addEventListener("keydown", (e) => {
     if (e.shiftKey && !selected && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
