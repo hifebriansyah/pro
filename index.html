@@ -1332,6 +1332,8 @@ $("pj-new").onclick = () => projectView?.newProject();
 if (!chatById(state.current)) state.current = null;
 renderList(); renderChat();
 { const r = parseHash(); if (r.view !== "chat") setView(r.view, r.id); else paintModes(); }
+// a project that was running when the page was refreshed goes on by itself, wherever the visitor is (the office shows the team at work)
+try { if (JSON.parse(localStorage.getItem("islam-chat:projects:v1") || "[]").some((p) => p?.status === "running")) openProject(parseHash().view === "project" ? parseHash().id : undefined); } catch { /* no storage: nothing to resume */ }
 </script>
 </body>
 </html>

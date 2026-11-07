@@ -198,3 +198,10 @@ test("the screen puts the result first: it opens by itself when the project is d
   assert.match(view, /"Landing page untuk jasa pembuatan website/, "the first example is a landing page");
   assert.match(html, /const downloadText = \(name, text, type = "text\/markdown"\)/);
 });
+
+test("settle: a run cut off by a refresh is marked to go on by itself; one the visitor stopped is not", () => {
+  const cut = { id: "a", plan: [], steps: {}, status: "running" }, stopped = { id: "b", plan: [], steps: {}, status: "paused", pause: { reason: "stopped", next: null } };
+  settle([cut, stopped]);
+  assert.deepEqual([cut.status, cut.resume, stopped.resume], ["paused", true, undefined]);
+  assert.match(view, /cut\[0\]\.status === "paused"\) run\(cut\[0\]\)/);
+});

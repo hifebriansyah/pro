@@ -335,6 +335,11 @@ export function createProjectView({ host, deps }) {
     deps.route?.(p ? p.id : null); // the address follows the screen: #proyek/<id> for a project, #proyek for the start screen
   }
 
+  // a project that was running when the page was refreshed goes on by itself (one at a time: the first one found)
+  const cut = projects.filter((p) => p.resume);
+  for (const p of projects) delete p.resume;
+  if (cut[0]) queueMicrotask(() => { if (!running && cut[0].status === "paused") run(cut[0]); });
+
   const api = {
     render, stop, get running() { return !!running; }, get current() { return currentId ? by(currentId) : null; }, onChange: null,
     newProject() { currentId = null; render(); host.scrollTop = 0; },

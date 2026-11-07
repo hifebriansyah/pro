@@ -80,7 +80,7 @@ export function nextAction(p) {
 }
 
 /** A project that was running when the page closed is not running any more: it can be continued. */
-export function settle(list) { for (const p of list) if (p.status === "running") { p.status = "paused"; p.pause = p.pause ?? { reason: "stopped", next: null }; for (const st of Object.values(p.steps)) if (st.status === "running") st.status = "pending"; } return list; }
+export function settle(list) { for (const p of list) if (p.status === "running") { p.resume = true; /* it was cut off by a refresh: the screen picks it up again */ p.status = "paused"; p.pause = p.pause ?? { reason: "stopped", next: null }; for (const st of Object.values(p.steps)) if (st.status === "running") st.status = "pending"; } return list; }
 
 /** All the documents of a finished (or partly finished) project as one Markdown file; a mockup goes in as an HTML block. */
 export function bundleMarkdown(p, names = {}) {
