@@ -88,6 +88,9 @@ export async function testPage(html, { timeoutMs = 4000 } = {}) {
       w.tailwind = { config: {} };
       w.lucide = { createIcons() {}, icons: {} };
       w.THREE = anything(doc);
+      const ok = async () => ({ data: {}, status: 200 }); // a request library answers like a server that accepted the data
+      w.axios = Object.assign(ok, { get: ok, post: ok, put: ok, patch: ok, delete: ok, request: ok, create: () => w.axios });
+      w.$ = w.jQuery = undefined;
       w.gsap = anything(doc); w.ScrollTrigger = anything(doc); w.Chart = anything(doc); w.L = anything(doc); w.AOS = anything(doc); w.Swiper = anything(doc);
     },
   });

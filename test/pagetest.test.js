@@ -73,6 +73,7 @@ test("libraries from the internet are stood in for: a three.js scene, Tailwind's
     new ResizeObserver(() => {}).observe(host);
     lucide.createIcons();
     gsap.to("#scene", { opacity: 1 });
+    axios.post("/api/booking", { a: 1 }).then((r) => { document.getElementById("scene").dataset.sent = String(r.status); });
   });`;
   const r = await testPage(page({ head: '<script src="https://cdn.tailwindcss.com/3.4.17"></script>', body: '<div id="scene" style="height:300px"></div><i data-lucide="star"></i>', script }));
   assert.equal(r.ran, true);
