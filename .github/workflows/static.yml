@@ -28,6 +28,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - name: Install (jsdom, for the page test run)
+        run: npm ci --no-audit --no-fund
       - name: Test (offline)
         run: npm run test:offline
       - name: Collect the site files
