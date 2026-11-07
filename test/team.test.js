@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import { backendTeam } from "../src/backend.js";
 import { loadPersonas } from "../src/personas-fs.js";
 import { PLAYBOOKS, stepById, suggestPlaybook, validatePlaybook } from "../src/playbooks.js";
-import { BUDGET, LIMITS, buildStepPrompt, parseStepReply, parseTeamBody, runTeam } from "../src/team.js";
+import { BUDGET, LIMITS, buildStepPrompt, parseStepReply, parseTeamBody, projectPersona, runTeam } from "../src/team.js";
 
 globalThis.__SKILLS__ = [];
 const worker = (await import("../worker/pro.js")).default;
@@ -342,4 +342,13 @@ test("runTeam: a draft that is too short is asked for once more, complete; the l
   await collect(body({ goal: "Kampanye Instagram untuk toko kopi", playbook: "campaign" }), { chatFn: software.chat });
   assert.equal(software.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "playbooks without a minimum are untouched");
   void again;
+});
+
+test("a project step never carries the persona's chat rules (short replies, questions first, one file per message), but keeps who they are and how they work", () => {
+  for (const [id, text] of personas) {
+    const p = buildStepPrompt({ step: stepById(PLAYBOOKS.website, "copy"), goal: "Landing page toko kopi", results: new Map(), persona: text, skill: "", playbook: PLAYBOOKS.website });
+    assert.doesNotMatch(p, /three short paragraphs|ask at most two focused questions|one file per message|do not paste it into the chat|Just answer the user's message/, id);
+    assert.match(p, /Stay in character as \w+/, `${id}: the identity stays`);
+    assert.ok(projectPersona(text).split("\n").filter((l) => l.startsWith("- ")).length >= 4, `${id}: the professional rules stay`);
+  }
 });

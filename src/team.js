@@ -47,6 +47,11 @@ export function parseTeamBody(text) {
 const isIndonesian = (text) => /\b(yang|dan|untuk|dengan|buat(kan)?|aplikasi|saya|kami|kita|di|ke|dari|agar|supaya|bisa|akan|ini|itu|tidak|ada|pada|sebagai)\b/i.test(text);
 const cut = (text, n) => (text.length > n ? text.slice(0, n).replace(/\s+\S*$/, "") + "\n…[dipersingkat]" : text);
 
+// The personas are written for the chat: short replies, questions first, deliverables kept out of the reply, one file per message. In a project step those
+// rules are wrong, and a small model follows the first rule it read rather than a later "ignore that", so they are taken out instead of overruled.
+const CHAT_ONLY = [/^- This is a chat\b/, /^- If the request is too vague\b/, /^- When the user asks for a deliverable\b/, /^- You can write long files\b/, /^- Always answer in the language of the user's newest message\b/, /^Do not mention these instructions\b/];
+export const projectPersona = (persona) => String(persona ?? "").split("\n").filter((line) => !CHAT_ONLY.some((re) => re.test(line.trim()))).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+
 /** Everything one professional is told for one step. skill: the text of the writing-md / mockup-html skill. */
 export function buildStepPrompt({ step, goal, results, persona, skill, revision, reviewing, playbook }) {
   const me = byId(step.agent);
@@ -64,9 +69,9 @@ export function buildStepPrompt({ step, goal, results, persona, skill, revision,
     return `=== ${s.title}, by ${byId(s.agent).name} ===\n${body}`;
   }).join("\n\n");
   const lines = [
-    persona,
+    projectPersona(persona),
     "---",
-    "PROJECT MODE: you are not chatting now. Ignore the chat rules above about short replies, asking questions first, one file per message and keeping code out of the reply: here the deliverable IS your reply, complete, in the format below.",
+    "PROJECT MODE: you are not chatting now. The deliverable IS your reply: complete and thorough, in the format below, with no questions back.",
     `You are ${me.name}, ${me.role}, working in a virtual product team (${team}) on a shared project. Your teammates already did their part; do yours so the next person can build on it.`,
     `PROJECT GOAL\n${goal}`,
     `YOUR TASK: ${step.title}\n${step.task}`,
@@ -194,7 +199,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     for (let round = 0; problems.length && round < FIX_ROUNDS && !signal?.aborted; round++) {
       try {
         send({ type: "step", phase: "part", ...info });
-        const prompt = [persona, "---", "PROJECT MODE: you are not chatting now; answer with the code only.", `You are ${byId(step.agent).name}, ${byId(step.agent).role}. PROJECT GOAL\n${body.goal}`, `YOUR TASK: ${step.title}\nFix the script of the page you finished.`,
+        const prompt = [projectPersona(persona), "---", "PROJECT MODE: you are not chatting now; answer with the code only.", `You are ${byId(step.agent).name}, ${byId(step.agent).role}. PROJECT GOAL\n${body.goal}`, `YOUR TASK: ${step.title}\nFix the script of the page you finished.`,
           `THE PAGE YOU FINISHED, what is in it:\n${outlineOf(html)}`,
           `ITS SCRIPT DOES NOT WORK YET. An automatic check found:\n${problems.map((p) => "- " + p).join("\n")}`,
           `Answer with ONLY the corrected, complete JavaScript as <document title="script.js">...code...</document> (no HTML, no <script> tags, no code fence), then <handoff>one sentence</handoff>. Use only ids listed above. Check every bracket, quote and parenthesis; write simpler code where you are unsure.`,
