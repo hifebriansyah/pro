@@ -284,3 +284,55 @@ test("worker /team: its own rate limit, a bigger body, the secret to the backend
   globalThis.fetch = async () => { throw new TypeError("fetch failed"); };
   assert.equal((await call({ goal: "x" }, backend)).status, 502);
 });
+
+test("the website playbook: a goal about a page picks it, and its result is the page itself", () => {
+  const pb = PLAYBOOKS.website;
+  assert.equal(pb.primary, "page");
+  assert.equal(stepById(pb, "page").kind, "mockup");
+  assert.ok(stepById(pb, "page").minChars >= 5000);
+  assert.deepEqual(pb.steps.map((s) => s.id), ["brief", "copy", "page", "qa", "launch"]);
+  assert.deepEqual(stepById(pb, "page").uses, ["brief", "copy"], "the page is built from the copy");
+  assert.equal(stepById(pb, "qa").gate.of, "page", "the reviewer looks at the page");
+  for (const goal of ["Buatkan landing page untuk jasa pembuatan website", "Bikin website company profile untuk CV Maju", "Saya butuh halaman web untuk toko kue", "Landing page promo Ramadan", "one page portfolio fotografer"]) assert.equal(suggestPlaybook(goal), "website", goal);
+  assert.equal(suggestPlaybook("Kampanye Instagram untuk toko kopi"), "campaign");
+  assert.equal(suggestPlaybook("Aplikasi absensi karyawan pabrik"), "software");
+  assert.equal(suggestPlaybook("Fitur reservasi meja untuk restoran"), "software");
+  assert.throws(() => validatePlaybook({ id: "x", primary: "ghost", steps: [{ id: "a", agent: "po", kind: "document", uses: [], task: "" }] }), /primary ghost is not a step/);
+});
+
+test("runTeam: a draft that is too short is asked for once more, complete; the longer one is kept; a failing second try keeps the draft", async () => {
+  const web = (o = {}) => body({ goal: "Buatkan landing page untuk jasa pembuatan website", playbook: "website", ...o });
+  const page = (n) => `<mockup title="Halaman"><!doctype html><html><body>${"<section>isi</section>".repeat(n)}</body></html></mockup><handoff>Bagian: hero, harga, kontak.</handoff>`;
+  const run = async (secondTry) => {
+    const prompts = [];
+    const chatFn = async (prompt) => {
+      prompts.push(prompt);
+      const title = titleOf(prompt);
+      if (title === "Halaman landing page") { const second = /TOO SHORT AND TOO SIMPLE/.test(prompt); return second ? secondTry() : { text: page(20) }; }
+      const gate = /<verdict>approved<\/verdict> or/.test(prompt);
+      return { text: `<document title="${title}">\n# ${title}\n\nisi dokumen ${"x".repeat(200)}\n</document><handoff>Catatan ${title}.</handoff>${gate ? "<verdict>approved</verdict>" : ""}` };
+    };
+    const { events, summary } = await collect(web(), { chatFn });
+    return { events, summary, prompts, page: events.find((e) => e.type === "artifact" && e.id === "page") };
+  };
+  let r = await run(() => ({ text: page(600) }));
+  assert.equal(r.events[0].primary, "page", "the plan names the headline step");
+  assert.ok(r.page.content.length > 7000, "the richer version replaced the draft");
+  assert.equal(r.prompts.filter((p) => /TOO SHORT AND TOO SIMPLE/.test(p)).length, 1, "asked once, not in a loop");
+  assert.match(r.prompts.find((p) => /TOO SHORT AND TOO SIMPLE/.test(p)), /YOUR DRAFT\n<!doctype html>/);
+  assert.equal(r.summary.calls, 6, "five steps and one more call for the page");
+  assert.equal(r.events.at(-1).type, "done");
+  r = await run(() => { throw new Error("model down"); });
+  assert.ok(r.page.content.length < 7000 && r.page.content.length > 100, "the draft is kept when the second try fails");
+  assert.equal(r.events.at(-1).type, "done");
+  r = await run(() => ({ text: page(3) }));
+  assert.ok(r.page.content.length > 400, "an answer that is not longer is not taken");
+  assert.equal(r.page.content, (await run(() => ({ text: page(3) }))).page.content);
+  const long = fakeModel({ reply: (title) => (title === "Halaman landing page" ? page(600) : `<document title="${title}">${"x".repeat(300)}</document><handoff>n.</handoff><verdict>approved</verdict>`) });
+  const again = await collect(web(), { chatFn: long.chat });
+  assert.equal(long.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "a page that is long enough is left alone");
+  const software = fakeModel();
+  await collect(body(), { chatFn: software.chat });
+  assert.equal(software.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "playbooks without a minimum are untouched");
+  void again;
+});

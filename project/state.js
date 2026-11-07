@@ -15,6 +15,7 @@ export function newProject({ goal, playbook, provider = "quran", now = Date.now(
   const pb = PLAYBOOKS[playbook] ? playbook : suggestPlaybook(goal);
   return {
     id: newId(now), title: titleFrom(goal), goal: String(goal).trim(), playbook: pb, provider, createdAt: now, updatedAt: now,
+    primary: PLAYBOOKS[pb].primary ?? null, // the step whose deliverable is the result itself (the landing page): the screen opens it and offers it for download
     status: "draft", // draft (not started), running, paused (out of time or stopped: can continue), failed (a step failed: retry), done
     plan: PLAYBOOKS[pb].steps.map((s) => ({ id: s.id, agent: s.agent, title: s.title, kind: s.kind, gate: !!s.gate })),
     steps: {}, artifacts: {}, reviews: {}, feed: [], pause: null,
@@ -31,6 +32,7 @@ export function applyEvent(p, ev, now = Date.now()) {
     case "plan":
       p.plan = ev.steps.map((s) => ({ id: s.id, agent: s.agent, name: s.name, role: s.role, title: s.title, kind: s.kind, gate: !!s.gate }));
       for (const s of ev.steps) { const st = step(p, s.id); if (s.status === "done" && p.artifacts[s.id]) st.status = "done"; else if (st.status !== "done") st.status = "pending"; }
+      p.primary = ev.primary ?? p.primary ?? null;
       p.status = "running"; p.pause = null; p.error = null;
       break;
     case "step": {
@@ -62,6 +64,9 @@ export function runBody(p, { only, feedback } = {}) {
   }
   return { goal: p.goal, playbook: p.playbook, provider: p.provider, done, ...(only ? { only, feedback: feedback ?? "" } : {}) };
 }
+
+/** The headline deliverable of a project that has one and has it: {id, ...artifact}, or null. */
+export const primaryArtifact = (p) => (p.primary && p.artifacts[p.primary] ? { id: p.primary, ...p.artifacts[p.primary] } : null);
 
 export const progress = (p) => ({ done: p.plan.filter((s) => p.steps[s.id]?.status === "done" && p.artifacts[s.id]).length, total: p.plan.length });
 

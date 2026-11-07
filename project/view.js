@@ -4,7 +4,7 @@
 //           team: { busy(agentId, text|null), visit(from, to) }  (what the office shows), download(filename, text) }
 import { PLAYBOOKS, suggestPlaybook } from "../src/playbooks.js";
 import { ROSTER } from "../src/roster.js";
-import { applyEvent, bundleMarkdown, load, newProject, nextAction, progress, runBody, save } from "./state.js";
+import { applyEvent, bundleMarkdown, load, newProject, nextAction, primaryArtifact, progress, runBody, save } from "./state.js";
 
 const svg = (body) => `<svg viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
 const ICON = {
@@ -23,7 +23,7 @@ const ICON = {
   alert: svg('<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>'),
 };
 const STATUS = { draft: "Belum dimulai", running: "Berjalan", paused: "Dijeda", failed: "Perlu dicoba lagi", done: "Selesai" };
-const EXAMPLES = ["Aplikasi absensi karyawan untuk pabrik dengan 200 pekerja, bisa dipakai di ponsel", "Kampanye Instagram untuk membuka toko kopi baru di Cianjur", "Fitur reservasi meja untuk jaringan restoran"];
+const EXAMPLES = ["Landing page untuk jasa pembuatan website dengan form kontak dan daftar harga", "Aplikasi absensi karyawan untuk pabrik dengan 200 pekerja, bisa dipakai di ponsel", "Kampanye Instagram untuk membuka toko kopi baru di Cianjur", "Fitur reservasi meja untuk jaringan restoran"];
 const TIMES = { quran: "sekitar 1 sampai 2 menit", islam: "sekitar 5 sampai 10 menit (sumber ini lebih lambat)" };
 const SIZE = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(".", ",")} rb karakter` : `${n} karakter`);
 const WHEN = (t) => new Date(t).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -78,7 +78,7 @@ export function createProjectView({ host, deps }) {
     else if (ev.type === "step" && ev.phase === "end" && s) { deps.team.busy(s.agent, null); if (ev.status === "failed") say(`${s.title} gagal.`); }
     else if (ev.type === "artifact" && s) say(`${s.title} selesai.`);
     else if (ev.type === "handoff") deps.team.visit(ev.from, ev.to);
-    else if (ev.type === "done") say("Proyek selesai.");
+    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main); } // the result itself opens by itself
     else if (ev.type === "paused") say(ev.reason === "failed" ? "Proyek berhenti karena satu langkah gagal." : "Proyek dijeda.");
   }
   async function readEvents(res, onEvent) {
@@ -93,6 +93,8 @@ export function createProjectView({ host, deps }) {
       for (const b of blocks) { const line = b.split("\n").find((l) => l.startsWith("data:")); if (!line) continue; try { onEvent(JSON.parse(line.slice(5).trim())); } catch { /* a line that is not an event */ } }
     }
   }
+  const showArtifact = (a) => deps.openDoc(a.kind === "mockup" ? { kind: "mockup", title: a.title, html: a.content } : { kind: "doc", title: a.title, markdown: a.content });
+  const saveArtifact = (a, p) => (a.kind === "mockup" ? deps.download(`${slug(a.title || p.title)}.html`, a.content, "text/html") : deps.download(`${slug(a.title || p.title)}.md`, a.content, "text/markdown"));
   const stop = () => { if (running) { running.stopped = true; running.ac.abort(); } };
 
   // ---- the start screen
@@ -173,7 +175,7 @@ export function createProjectView({ host, deps }) {
     if (act === "stop" && busyHere) ctl.append(button("Hentikan", "stop", "pj-btn", stop));
     else if (act === "continue") ctl.append(button("Lanjutkan", "play", "pj-btn primary", () => run(p)));
     else if (act === "retry") ctl.append(button("Coba lagi", "retry", "pj-btn primary", () => run(p)));
-    if (done) ctl.append(button("Unduh semua", "download", "pj-btn", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))))));
+    if (done) ctl.append(button("Unduh semua", "download", "pj-btn", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))), "text/markdown")));
     head.append(title, status, ctl);
     wrap.append(head);
     if (p.error) wrap.append(errorBox(p.error));
@@ -204,6 +206,7 @@ export function createProjectView({ host, deps }) {
     const card = el("div", "pj-card");
     const top = el("div", "pj-card-top");
     top.append(el("b", null, `${index + 1}. ${s.title}`), el("span", "pj-who", `${ag.name} · ${role}`));
+    if (s.id === p.primary) top.append(el("span", "pj-main", "Hasil utama"));
     const line = el("p", "pj-line");
     line.textContent = st.status === "running" ? `sedang menulis…${st.attempt > 1 ? " (percobaan ke-" + st.attempt + ")" : ""}${st.revision ? " (revisi)" : ""}`
       : st.status === "failed" ? `gagal: ${st.error ?? "tidak diketahui"}` : st.status === "done" ? "selesai" : "menunggu giliran";
@@ -213,7 +216,7 @@ export function createProjectView({ host, deps }) {
       open.append(icon(a.kind === "mockup" ? "layout" : "file"));
       const t = el("span", "pj-art-text"); t.append(el("b", null, a.title), el("span", null, `${a.kind === "mockup" ? "Mockup" : "Dokumen"} · ${SIZE(a.content.length)}${a.revision ? " · revisi 1" : ""}`));
       open.append(t, el("span", "pj-art-open", "Buka"));
-      open.onclick = () => deps.openDoc(a.kind === "mockup" ? { kind: "mockup", title: a.title, html: a.content } : { kind: "doc", title: a.title, markdown: a.content });
+      open.onclick = () => showArtifact(a);
       card.append(open);
       if (a.note) { const n = el("p", "pj-handoff"); n.append(el("span", "pj-handoff-label", "Catatan serah-terima"), document.createTextNode(a.note)); card.append(n); }
     }
@@ -231,6 +234,7 @@ export function createProjectView({ host, deps }) {
       const row = el("div", "pj-step-actions");
       if (st.status === "failed") row.append(button("Coba lagi", "retry", "pj-link", () => run(p)));
       else row.append(button("Minta perubahan", "pencil", "pj-link", () => { ui.edit = { id: s.id, text: "" }; render(); }));
+      if (a && st.status === "done") row.append(button(a.kind === "mockup" ? "Unduh .html" : "Unduh .md", "download", "pj-link", () => saveArtifact(a, p)));
       card.append(row);
     }
     if (ui.edit?.id === s.id && p.id === currentId) {
@@ -246,9 +250,15 @@ export function createProjectView({ host, deps }) {
   }
   function finish(p) {
     const box = el("section", "pj-finish");
-    box.append(el("h3", null, "Proyek selesai"), el("p", null, `${p.plan.length} berkas siap: ${p.plan.map((s) => s.title).join(", ")}.`));
-    const row = el("div", "pj-ctl");
-    row.append(button("Unduh semua (.md)", "download", "pj-btn primary", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))))), button("Proyek baru", "sparkles", "pj-btn", () => api.newProject()));
+    const main = primaryArtifact(p);
+    if (main) {
+      box.append(el("h3", null, main.kind === "mockup" ? "Halamanmu sudah jadi" : "Hasil utama sudah jadi"), el("p", null, `${main.title}. Buka untuk melihat hasilnya, atau unduh berkasnya. Berkas pendukung (brief, naskah, penilaian, peluncuran) ada di langkah-langkah di atas.`));
+      const first = el("div", "pj-ctl");
+      first.append(button(main.kind === "mockup" ? "Buka halaman" : "Buka dokumen", main.kind === "mockup" ? "layout" : "file", "pj-btn primary", () => showArtifact(main)), button(main.kind === "mockup" ? "Unduh .html" : "Unduh .md", "download", "pj-btn", () => saveArtifact(main, p)));
+      box.append(first);
+    } else box.append(el("h3", null, "Proyek selesai"), el("p", null, `${p.plan.length} berkas siap: ${p.plan.map((s) => s.title).join(", ")}.`));
+    const row = el("div", "pj-ctl pj-ctl-more");
+    row.append(button("Unduh semua (.md)", "download", main ? "pj-btn" : "pj-btn primary", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))), "text/markdown")), button("Proyek baru", "sparkles", "pj-btn", () => api.newProject()));
     box.append(row);
     return box;
   }

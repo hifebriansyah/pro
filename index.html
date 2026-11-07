@@ -396,7 +396,9 @@
   .pj-edit textarea:focus { border-color: var(--accent); }
   .pj-edit-row { display: flex; gap: 8px; margin-top: 8px; }
   .pj-finish { margin: 6px 0 0; padding: 20px; border-radius: 18px; background: color-mix(in srgb, #16a34a 10%, var(--panel)); border: 1px solid color-mix(in srgb, #16a34a 35%, var(--line)); }
-  .pj-finish h3 { margin: 0 0 6px; font-size: 17px; }
+  .pj-finish h3 { margin: 0 0 6px; font-size: 18px; }
+  .pj-ctl-more { margin-top: 12px; }
+  .pj-main { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--accent); color: var(--on-accent); align-self: center; }
   .pj-finish p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
   .pj-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .project .of-tools { margin-left: auto; }
@@ -1293,9 +1295,9 @@ paintOfficeTools();
 // Team projects (project/*.js, src/team.js): a goal goes through a playbook, one professional per step. The screen is loaded when first opened.
 const teamBusy = new Map();   // agent id -> what they are writing, while a team project has them on a step
 const teamVisits = new Map(); // agent id -> who they are handing their finished step to, for a few seconds
-const downloadText = (name, text) => {
+const downloadText = (name, text, type = "text/markdown") => {
   const a = el("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: "text/markdown" })); a.download = name;
+  a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
   a.click(); URL.revokeObjectURL(a.href);
 };
 async function openProject() {

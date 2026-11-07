@@ -110,7 +110,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
   const stepTimes = [];
   const skillText = (kind) => skills.get(kind === "mockup" ? "mockup-html" : "writing-md")?.body ?? "";
 
-  send({ type: "plan", playbook: playbook.id, title: playbook.title, steps: playbook.steps.map((s) => ({ id: s.id, agent: s.agent, name: byId(s.agent).name, role: byId(s.agent).role, title: s.title, kind: s.kind, gate: !!s.gate, status: results.has(s.id) && s.id !== body.only ? "done" : "pending" })) });
+  send({ type: "plan", playbook: playbook.id, title: playbook.title, primary: playbook.primary ?? null, steps: playbook.steps.map((s) => ({ id: s.id, agent: s.agent, name: byId(s.agent).name, role: byId(s.agent).role, title: s.title, kind: s.kind, gate: !!s.gate, status: results.has(s.id) && s.id !== body.only ? "done" : "pending" })) });
 
   /** One professional, one step. Returns the parsed reply or null (and has reported why). */
   const perform = async (step, extra = {}) => {
@@ -126,6 +126,10 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
         let reply = await chatFn(prompt, { signal });
         reply = await finishReply(reply, `${step.title}: ${step.task}`.slice(-1500), chatFn, { signal }, { onToolStart: () => send({ type: "step", phase: "part", ...info }), onTool: () => { summary.calls++; } });
         const parsed = parseStepReply(String(reply.text ?? ""), step);
+        if (parsed.artifact && step.minChars && parsed.artifact.content.length < step.minChars && !extra.deepened) {
+          const fuller = await deepen(step, parsed, info, persona);
+          if (fuller) return fuller;
+        }
         if (parsed.artifact) return parsed;
         if (attempt === 2) throw new Error("jawaban kosong atau formatnya tidak terbaca");
       } catch (e) {
@@ -134,6 +138,23 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
       }
     }
     return null;
+  };
+
+  /** A draft that is shorter than the step asks for (small free models write briefly): ask once for the complete, richer version; keep the draft if that fails. */
+  const deepen = async (step, parsed, info, persona) => {
+    if (signal?.aborted) return null;
+    try {
+      send({ type: "step", phase: "part", ...info });
+      const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook }) +
+        `\n\nYOUR DRAFT BELOW IS TOO SHORT AND TOO SIMPLE (${parsed.artifact.content.length} characters; the real deliverable needs at least ${step.minChars}). Write the complete, richer version now: every section fully built with the real content, polished styling, nothing left as a sketch or a placeholder. Same format and tags as before.\n\nYOUR DRAFT\n${cut(parsed.artifact.content, PREVIOUS_CHARS)}`;
+      summary.calls++;
+      let reply = await chatFn(prompt, { signal });
+      reply = await finishReply(reply, `${step.title}: ${step.task}`.slice(-1500), chatFn, { signal }, { onTool: () => { summary.calls++; } });
+      const again = parseStepReply(String(reply.text ?? ""), step);
+      return again.artifact && again.artifact.kind === parsed.artifact.kind && again.artifact.content.length > parsed.artifact.content.length ? { ...again, note: again.note || parsed.note, verdict: again.verdict ?? parsed.verdict, changes: again.changes || parsed.changes } : null;
+    } catch {
+      return null;
+    }
   };
 
   const store = (step, parsed, revision) => {

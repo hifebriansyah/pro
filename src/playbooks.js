@@ -1,10 +1,30 @@
 // What a team project looks like: the steps in order, who does each, what they hand on, and which steps are a review that can send work back.
 // Fixed on purpose: the free models are weak at inventing a plan, so the order of work is data and the models write the content of each step.
 //   kind: "document" (Markdown) or "mockup" (an HTML screen); uses: the earlier steps whose result this one needs in full;
-//   gate: { of: stepId } marks a review: the reviewer says approved or changes, and "changes" sends the author back once or twice.
+//   gate: { of: stepId } marks a review: the reviewer says approved or changes, and "changes" sends the author back once or twice;
+//   minChars: a deliverable that comes back shorter than this is asked for once more, complete and richer (small free models write briefly);
+//   primary (on the playbook): the step whose deliverable IS the result (the landing page itself), which the page opens and offers to download.
 import { IDS } from "./roster.js";
 
 export const PLAYBOOKS = {
+  website: {
+    id: "website",
+    title: "Landing page atau website",
+    about: "Hasilnya halaman jadi: brief, naskah, halaman HTML lengkap yang bisa dibuka dan diunduh, penilaian QA, dan daftar periksa peluncuran.",
+    primary: "page",
+    steps: [
+      { id: "brief", agent: "po", title: "Brief halaman", kind: "document", uses: [],
+        task: "Write a one-page brief for the page: who it is for, the single action a visitor should take, the key messages and proof, the list of sections in order, the tone, and the must-have content (prices, contact details, offers) with believable specifics. Concrete, no placeholders." },
+      { id: "copy", agent: "copywriter", title: "Naskah halaman", kind: "document", uses: ["brief"],
+        task: "Write the final copy for every section of the page, in order: the headline and sub-headline, the call-to-action button texts, the benefits, the services or prices (a table is fine), three realistic testimonials, five FAQ entries, and the contact section. Ready to paste into the page, in the brand's voice." },
+      { id: "page", agent: "designer", title: "Halaman landing page", kind: "mockup", uses: ["brief", "copy"], minChars: 7000,
+        task: "Build the COMPLETE landing page as ONE HTML file, using the copy word for word: a sticky header with navigation anchors, a hero with the headline and the main call to action, the benefit section, services or prices, testimonials, the FAQ (use <details>), a contact form with client-side validation and a clear success message (no network), and a footer. Mobile first and responsive, CSS variables, a polished modern look, accessible (labels, focus styles, contrast), a little inline JavaScript for the menu and the form. It is the real page, not a sketch: every section filled with the real copy, at least 250 lines. In your handoff note list the sections and what to check." },
+      { id: "qa", agent: "qa", title: "Penilaian halaman", kind: "document", uses: ["brief", "copy"], gate: { of: "page" },
+        task: "Review the finished page against the brief and the copy: is every section there, is the copy used as written, does the contact form validate and confirm, are the anchors right, does it work on a phone, is it accessible (labels, contrast, focus)? Write the checklist with what passes and what does not. Approved only if the page could go live today; otherwise list exactly which section or point must change." },
+      { id: "launch", agent: "devops", title: "Daftar periksa peluncuran", kind: "document", uses: ["brief", "page"],
+        task: "Write the go-live checklist for this page: where to host it (with the reason), domain and DNS steps, HTTPS, the form's real destination (an email or a form service) since the page itself sends nothing, analytics, SEO tags and a social share image, performance checks, and a simple uptime check. Numbered steps someone can follow." },
+    ],
+  },
   software: {
     id: "software",
     title: "Fitur software baru",
@@ -49,6 +69,8 @@ export const stepById = (playbook, id) => playbook.steps.find((s) => s.id === id
 
 /** Pick a playbook from the goal's words (the page pre-selects it; the user can change it). */
 export function suggestPlaybook(goal) {
+  const page = /\b(landing ?page|one ?page|website|web ?site|situs web|halaman web|company profile|profil perusahaan|halaman (promo|produk|penjualan|depan)|laman)\b/i;
+  if (page.test(String(goal ?? ""))) return "website";
   const social = /\b(kampanye|campaign|konten|content|instagram|tiktok|youtube|facebook|twitter|sosmed|media sosial|social media|caption|hashtag|followers?|brand|merek|promosi|iklan|ads?)\b/i;
   return social.test(String(goal ?? "")) ? "campaign" : "software";
 }
@@ -56,6 +78,7 @@ export function suggestPlaybook(goal) {
 // a playbook must be consistent: real people, unique ids, inputs that come earlier, a gate that points at an earlier step
 export function validatePlaybook(pb) {
   const seen = new Set();
+  if (pb.primary && !pb.steps.some((s) => s.id === pb.primary)) throw new Error(`${pb.id}: primary ${pb.primary} is not a step`);
   for (const s of pb.steps) {
     if (!IDS.includes(s.agent)) throw new Error(`${pb.id}/${s.id}: unknown agent ${s.agent}`);
     if (seen.has(s.id)) throw new Error(`${pb.id}: duplicate step ${s.id}`);

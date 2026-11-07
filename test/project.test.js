@@ -18,7 +18,7 @@ async function recorded({ goal = "Buat aplikasi absensi karyawan untuk pabrik", 
     const title = /YOUR TASK: (.+)/.exec(prompt)?.[1] ?? "?";
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     const verdict = gate ? (verdicts[v++] ?? "approved") : null;
-    const inner = /Mockup/.test(title) ? `<mockup title="Layar"><html><body>${title}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\n${"isi ".repeat(60)}\n</document>`;
+    const inner = /Mockup|Halaman landing page/.test(title) ? `<mockup title="Layar"><html><body>${title}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\n${"isi ".repeat(60)}\n</document>`;
     return { text: `${inner}<handoff>Catatan ${title}.</handoff>${gate ? (verdict === "approved" ? "<verdict>approved</verdict>" : "<verdict>changes</verdict><changes>- perbaiki a\n- perbaiki b</changes>") : ""}` };
   };
   const events = [];
@@ -169,4 +169,32 @@ test("the project screen and the office both use the playbooks and the roster th
   assert.match(view, /from "\.\.\/src\/roster\.js"/);
   const dir = readdirSync(new URL("../project/", import.meta.url));
   assert.deepEqual(dir.sort(), ["state.js", "view.js"]);
+});
+
+test("a project remembers its headline deliverable: the page for a website, nothing for the others", async () => {
+  const { primaryArtifact } = await import("../project/state.js");
+  const w = newProject({ goal: "Buatkan landing page untuk jasa pembuatan website" });
+  assert.equal(w.playbook, "website");
+  assert.equal(w.primary, "page");
+  assert.equal(primaryArtifact(w), null, "not there until it is written");
+  const events = await recorded({ goal: "Buatkan landing page untuk jasa pembuatan website", playbook: "website" });
+  for (const ev of events) applyEvent(w, ev);
+  assert.equal(w.status, "done");
+  assert.equal(w.primary, "page");
+  const main = primaryArtifact(w);
+  assert.deepEqual([main.id, main.kind], ["page", "mockup"]);
+  assert.match(main.content, /^<html/i);
+  assert.equal(newProject({ goal: "Aplikasi absensi karyawan" }).primary, null);
+  assert.equal(primaryArtifact(newProject({ goal: "Aplikasi absensi karyawan" })), null);
+  const md = bundleMarkdown(w);
+  assert.match(md, /```html/);
+});
+
+test("the screen puts the result first: it opens by itself when the project is done, has its own download, and says which step is the result", () => {
+  assert.match(view, /const main = primaryArtifact\(p\); if \(main && currentId === p\.id\) showArtifact\(main\)/);
+  assert.match(view, /"Halamanmu sudah jadi"/);
+  assert.match(view, /"Hasil utama"/);
+  assert.match(view, /download\(`\$\{slug\(a\.title \|\| p\.title\)\}\.html`, a\.content, "text\/html"\)/);
+  assert.match(view, /"Landing page untuk jasa pembuatan website/, "the first example is a landing page");
+  assert.match(html, /const downloadText = \(name, text, type = "text\/markdown"\)/);
 });
