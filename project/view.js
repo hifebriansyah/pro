@@ -27,8 +27,8 @@ const ICON = {
 };
 const STATUS = { draft: "Belum dimulai", running: "Berjalan", paused: "Dijeda", failed: "Perlu dicoba lagi", done: "Selesai" };
 const EXAMPLES = ["Landing page untuk jasa pembuatan website dengan form kontak dan daftar harga", "Aplikasi absensi karyawan untuk pabrik dengan 200 pekerja, bisa dipakai di ponsel", "Kampanye Instagram untuk membuka toko kopi baru di Cianjur", "Fitur reservasi meja untuk jaringan restoran"];
-const TIMES = { quran: "sekitar 1 sampai 2 menit", islam: "sekitar 5 sampai 10 menit (sumber ini lebih lambat)", deepseek: "sekitar 1 sampai 3 menit", qwen: "sekitar 1 sampai 3 menit" };
-const NAMES = { quran: "quran-gpt", islam: "islam-gpt", deepseek: "DeepSeek", qwen: "Qwen" };
+const TIMES = { quran: "sekitar 1 sampai 2 menit", islam: "sekitar 5 sampai 10 menit (sumber ini lebih lambat)", deepseek: "sekitar 1 sampai 3 menit" };
+const NAMES = { quran: "quran-gpt", islam: "islam-gpt", deepseek: "DeepSeek" };
 const SIZE = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(".", ",")} rb karakter` : `${n} karakter`);
 const WHEN = (t) => new Date(t).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 

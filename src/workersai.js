@@ -1,4 +1,4 @@
-// The answer sources on Cloudflare Workers AI: DeepSeek V4.1 Flash and Qwen3.8 27B, paid from the account's AI Gateway credit (unified billing), never with
+// The answer source on Cloudflare Workers AI: DeepSeek V4.1 Flash, paid from the account's AI Gateway credit (unified billing), never with
 // Workers AI neurons: every call goes through the gateway "pro", whose Workers AI billing is set to "unified".
 //   In the Worker (worker/pro.js) the AI binding calls the model. On the backend (Vercel, no binding) the call goes to the Worker's POST /llm with the
 //   shared secret (x-pro-secret), so no Cloudflare token has to live on Vercel.
@@ -7,7 +7,8 @@
 export const MODELS = {
   // no thinking: even at reasoning_effort "low" DeepSeek sometimes thought through the whole budget (28,000 characters) and answered nothing
   deepseek: { model: "@cf/deepseek-ai/deepseek-v4.1-flash-1017", options: { chat_template_kwargs: { thinking: false } } },
-  qwen: { model: "@cf/qwen/qwen3.8-27b", options: { chat_template_kwargs: { enable_thinking: false } } },
+  // Qwen3.8 27B was tried and removed: a dense 27B model writes about 130 characters a second (DeepSeek: about 400), so a whole landing page ran past Workers AI's
+  // two-minute request limit ("3046: Request timeout").
 };
 export const AI_PROVIDERS = Object.keys(MODELS);
 export const GATEWAY_ID = "pro";

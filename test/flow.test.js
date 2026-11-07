@@ -109,7 +109,7 @@ test("QA labels for content, layout or accessibility go to the designer too", ()
   assert.deepEqual(splitChanges("- [testimoni] Verifikasi keaslian testimoni\n- [aksesibilitas] Kontras tombol kurang\n- [kode] Link #contact rusak"), { design: "- Verifikasi keaslian testimoni\n- Kontras tombol kurang", code: "- Link #contact rusak" });
 });
 
-test("DeepSeek and Qwen (no one-minute limit): the page is written in one go, with no size cap, and the steps see more of the earlier work", async () => {
+test("DeepSeek (no one-minute limit): the page is written in one go, with no size cap, and the steps see more of the earlier work", async () => {
   const { prompts, artifacts } = await run((title, prompt) => {
     if (title === "Halaman landing page") return `<mockup title="Bengkel Jaya">${TOP}${BOTTOM}</mockup><handoff>Satu kali tulis.</handoff>`;
     if (title === "Halaman jadi dengan JavaScript") return `<document title="script.js">document.addEventListener("DOMContentLoaded", () => {});</document><handoff>n.</handoff>`;

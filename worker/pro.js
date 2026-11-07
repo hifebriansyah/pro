@@ -83,7 +83,7 @@ export default {
 
     // a published page is for anybody (no origin check): it is served sandboxed, see worker/publish.js
     if (request.method === "GET" && u.pathname.startsWith("/p/")) return (await servePage(u.pathname, env)) || new Response("not found", { status: 404 });
-    // POST /llm {prompt, model: "deepseek"|"qwen"} -> {text}: a Workers AI model for the backend (src/workersai.js), through the AI binding and the gateway (paid from credit, never neurons).
+    // POST /llm {prompt, model: "deepseek"} -> {text}: a Workers AI model for the backend (src/workersai.js), through the AI binding and the gateway (paid from credit, never neurons).
     // Server to server: no origin, only the shared secret.
     if (u.pathname === "/llm" && request.method === "POST") {
       if (!env.AI || !env.BACKEND_SECRET || !sameSecret(request.headers.get("x-pro-secret"), env.BACKEND_SECRET)) return reply({ error: "unauthorized" }, 401);

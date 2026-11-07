@@ -172,7 +172,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
   const summary = { playbook: playbook.id, steps: 0, calls: 0, revisions: 0, artifacts: 0, paused: null, failed: null };
   const t0 = now();
   const stepTimes = [];
-  // islam-gpt and quran-gpt give up after about a minute, so a page is written in two halves and kept small; the Workers AI models (DeepSeek, Qwen) have
+  // islam-gpt and quran-gpt give up after about a minute, so a page is written in two halves and kept small; the Workers AI model (DeepSeek) has
   // no such limit: one go, no cap
   const roomy = AI_PROVIDERS.includes(body.provider);
   // the skills are written for the chat, where an answer may run as long as it needs (it is continued when cut off). A project step has to finish inside
