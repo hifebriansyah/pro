@@ -18,7 +18,7 @@ async function recorded({ goal = "Buat aplikasi absensi karyawan untuk pabrik", 
     const title = /YOUR TASK: (.+)/.exec(prompt)?.[1] ?? "?";
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     const verdict = gate ? (verdicts[v++] ?? "approved") : null;
-    const inner = /Mockup|Halaman landing page/.test(title) ? `<mockup title="Layar"><html><body>${title}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\n${"isi ".repeat(60)}\n</document>`;
+    const inner = /Mockup|Halaman landing page|Halaman jadi/.test(title) ? `<mockup title="Layar"><html><body>${title}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\n${"isi ".repeat(60)}\n</document>`;
     return { text: `${inner}<handoff>Catatan ${title}.</handoff>${gate ? (verdict === "approved" ? "<verdict>approved</verdict>" : "<verdict>changes</verdict><changes>- perbaiki a\n- perbaiki b</changes>") : ""}` };
   };
   const events = [];
@@ -175,14 +175,14 @@ test("a project remembers its headline deliverable: the page for a website, noth
   const { primaryArtifact } = await import("../project/state.js");
   const w = newProject({ goal: "Buatkan landing page untuk jasa pembuatan website" });
   assert.equal(w.playbook, "website");
-  assert.equal(w.primary, "page");
+  assert.equal(w.primary, "build");
   assert.equal(primaryArtifact(w), null, "not there until it is written");
   const events = await recorded({ goal: "Buatkan landing page untuk jasa pembuatan website", playbook: "website" });
   for (const ev of events) applyEvent(w, ev);
   assert.equal(w.status, "done");
-  assert.equal(w.primary, "page");
+  assert.equal(w.primary, "build");
   const main = primaryArtifact(w);
-  assert.deepEqual([main.id, main.kind], ["page", "mockup"]);
+  assert.deepEqual([main.id, main.kind], ["build", "mockup"]);
   assert.match(main.content, /^<html/i);
   assert.equal(newProject({ goal: "Aplikasi absensi karyawan" }).primary, null);
   assert.equal(primaryArtifact(newProject({ goal: "Aplikasi absensi karyawan" })), null);
