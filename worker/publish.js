@@ -67,6 +67,17 @@ export async function handlePublish(kind, text, env, base) {
   return [{ id, url: `${base}/p/${id}/`, fileUrl: file === "index" ? `${base}/p/${id}/` : `${base}/p/${id}/${file}.html` }, 200];
 }
 
+// A sandboxed page has no origin, so the browser blocks its localStorage and sessionStorage (reading them throws). Pages the team makes use them (a
+// prototype keeps its data there), so a stand-in that keeps the data in memory for the visit is put first in the page, before the page's own scripts.
+const STORAGE = `<script>(function(){try{window.localStorage.getItem("x");return}catch(e){}function mk(){var t={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(t,k)?t[k]:null},setItem:function(k,v){t[k]=String(v)},removeItem:function(k){delete t[k]},clear:function(){t={}},key:function(i){var k=Object.keys(t)[i];return k===undefined?null:k},get length(){return Object.keys(t).length}}}try{Object.defineProperty(window,"localStorage",{value:mk(),configurable:true});Object.defineProperty(window,"sessionStorage",{value:mk(),configurable:true})}catch(e){}})()</script>`;
+export function withStorage(html) {
+  const h = String(html);
+  if (/^\s*<svg[\s>]/i.test(h)) return h; // an SVG on its own: no scripts run in it anyway
+  if (/<head[^>]*>/i.test(h)) return h.replace(/<head[^>]*>/i, (m) => m + STORAGE);
+  if (/<html[^>]*>/i.test(h)) return h.replace(/<html[^>]*>/i, (m) => m + "<head>" + STORAGE + "</head>");
+  return STORAGE + h;
+}
+
 /** GET /p/<id>/ or /p/<id>/<file>.html -> the page, or null when the path is not one. */
 export async function servePage(pathname, env) {
   const m = /^\/p\/([a-z0-9]{12})(?:\/(?:([a-z0-9][a-z0-9-]{0,39})\.html)?)?$/.exec(pathname);
@@ -76,5 +87,5 @@ export async function servePage(pathname, env) {
     // opaque origin: the page runs its scripts but cannot reach this Worker, cookies or storage of any site of ours
     "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-pointer-lock" };
   if (!o) return new Response("Halaman tidak ditemukan atau sudah kedaluwarsa.", { status: 404, headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" } });
-  return new Response(o.body, { headers: { ...headers, "Cache-Control": "no-cache" } }); // a stage is overwritten when it is revised: always ask again
+  return new Response(withStorage(await o.text()), { headers: { ...headers, "Cache-Control": "no-cache" } }); // a stage is overwritten when it is revised: always ask again
 }

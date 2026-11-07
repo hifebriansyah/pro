@@ -196,7 +196,12 @@ test("the screen puts the result first: it opens by itself when the project is d
   assert.match(view, /if \(ev\.kind === "mockup"\) publishStage\(p, ev\.id/, "every page version is published as it arrives, the designer's too");
   assert.match(view, /callPublish\("publish", \{ id: p\.published\?\.id, token, html: art\.content, file: stepId \}\)/, "into the project's one folder, a file per stage");
   assert.match(html, /id="doc-open" target="_blank" rel="noopener noreferrer"/);
-  assert.match(html, /\\\/p\\\/\[a-z0-9\]\{12\}\\\/\(\?:\[a-z0-9\]\[a-z0-9-\]\{0,39\}\\\.html\)\?\$/, "only a published page address (the folder, or one stage in it) gets the button");
+  assert.match(html, /\\\/p\\\/\[a-z0-9\]\{12\}\\\/\(\?:\[a-z0-9\]\[a-z0-9-\]\{0,39\}\\\.html\)\?\$/, "a published page opens at its own address (the folder, or one stage in it)");
+  assert.match(html, /link\.classList\.toggle\("hidden", !mock\)/, "the button is there for every mockup, published or not");
+  assert.match(html, /body: JSON\.stringify\(\{ token, html: d\.html, file: "preview" \}\)/, "an unpublished page is uploaded to an address of its own, then opened as it is");
+  assert.match(html, /w\.opener = null/, "the new window cannot reach this page");
+  assert.match(html, /if \(d\.kind === "mockup" && !\(d\.url && PUBLISHED_PAGE\.test\(d\.url\)\)\) previewUrl\(d\)/, "every page shown on the right goes to the bucket at once");
+  assert.doesNotMatch(html, /createObjectURL\(new Blob\(\[standalonePreview/, "never as a page of this site");
   assert.match(view, /"Halamanmu sudah jadi"/);
   assert.match(view, /"Hasil utama"/);
   assert.match(view, /download\(`\$\{slug\(a\.title \|\| p\.title\)\}\.html`, a\.content, "text\/html"\)/);

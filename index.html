@@ -930,16 +930,56 @@ function renderDoc() {
   $("doc-body").replaceChildren(renderMarkdown(docView.markdown));
   $("doc-body").scrollTop = 0;
 }
-// "open in a new window": only for a page published at its own address (pro-worker.situs.id/p/<id>/, served sandboxed). An unpublished page opened from
-// here would run with this site's address and could read its storage, so it gets no such button.
-function paintDocLink() {
-  const url = docView?.url && /^https:\/\/[^/]+\/p\/[a-z0-9]{12}\/(?:[a-z0-9][a-z0-9-]{0,39}\.html)?$/.test(docView.url) ? docView.url : null;
-  $("doc-open").classList.toggle("hidden", !url);
-  if (url) $("doc-open").href = url; else $("doc-open").removeAttribute("href");
+// "open in a new window", for every HTML mockup and SVG on the right: the page runs as it is, in a window of its own, at an address of its own on the
+// Worker (pro-worker.situs.id/p/<id>/..., served sandboxed: no origin, noindex, gone after 30 days). It never opens as a page of this site, where its
+// code could read this site's storage (the chats, the projects, their publishing tokens). A published page opens at its address; any other page is
+// uploaded as soon as it is shown (once: the same page reuses its address), as a preview in a folder of its own.
+const PUBLISHED_PAGE = /^https:\/\/[^/]+\/p\/[a-z0-9]{12}\/(?:[a-z0-9][a-z0-9-]{0,39}\.html)?$/;
+const PREVIEWS_KEY = "islam-chat:previews:v1";
+const pageSig = (text) => { let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0; return `${text.length}:${h >>> 0}`; };
+async function previewUrl(d) {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PREVIEWS_KEY) || "{}") || {}; } catch {}
+  const sig = pageSig(d.html);
+  if (saved[sig]?.url && Date.now() - saved[sig].at < 25 * 864e5) return saved[sig].url; // the same page: the same address, while it is still up
+  const token = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const res = await fetch(`${PROXY}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, html: d.html, file: "preview" }) }).catch(() => null);
+  const data = res ? await res.json().catch(() => ({})) : {};
+  if (!res?.ok || !data.fileUrl) throw new Error(data.error || "layanan tidak bisa dihubungi");
+  const keep = Object.entries(saved).sort((x, y) => y[1].at - x[1].at).slice(0, 29);
+  try { localStorage.setItem(PREVIEWS_KEY, JSON.stringify(Object.fromEntries([...keep, [sig, { url: data.fileUrl, id: data.id, token, at: Date.now() }]]))); } catch {}
+  return data.fileUrl;
 }
+function paintDocLink() {
+  const link = $("doc-open");
+  const mock = docView?.kind === "mockup";
+  link.classList.toggle("hidden", !mock);
+  const url = mock && docView.url && PUBLISHED_PAGE.test(docView.url) ? docView.url : null;
+  if (url) { link.href = url; link.title = "Buka di jendela baru"; }
+  else { link.href = "#"; link.title = "Buka di jendela baru (halamannya diunggah dulu ke alamatnya sendiri)"; }
+}
+$("doc-open").addEventListener("click", async (e) => {
+  if (docView?.kind !== "mockup" || (docView.url && PUBLISHED_PAGE.test(docView.url))) return; // a published page: the link itself opens it
+  e.preventDefault();
+  const d = docView;
+  const w = window.open("", "_blank"); // opened now, while the click still counts (a popup blocker allows it), filled when the address is ready
+  if (w) { w.opener = null; w.document.title = "Menyiapkan halaman…"; w.document.body.style.font = "16px system-ui, sans-serif"; w.document.body.textContent = "Menyiapkan halaman…"; }
+  try {
+    const url = await previewUrl(d);
+    if (w) w.location.replace(url); else window.open(url, "_blank", "noopener");
+  } catch (err) {
+    if (w) w.document.body.textContent = `Halaman tidak bisa dibuka: ${err.message}`;
+  }
+});
 /** The page that is open on the right was just published: show its button without reloading the preview. */
 const setDocUrl = (html, url) => { if (docView?.kind === "mockup" && docView.html === html) { docView.url = url; paintDocLink(); } };
-const openDoc = (d) => { docView = d; if (d.kind === "mockup") { d.svg ??= isSvg(d.html); mockTab = "preview"; mockWidth = 0; mockBg = "light"; } renderDoc(); };
+const openDoc = (d) => {
+  docView = d;
+  if (d.kind === "mockup") { d.svg ??= isSvg(d.html); mockTab = "preview"; mockWidth = 0; mockBg = "light"; }
+  renderDoc();
+  // every page shown here goes to the bucket at once (the same page only once), so "open in a new window" goes straight to its own address
+  if (d.kind === "mockup" && !(d.url && PUBLISHED_PAGE.test(d.url))) previewUrl(d).then((url) => { if (!(d.url && PUBLISHED_PAGE.test(d.url))) d.url = url; if (docView === d) paintDocLink(); }).catch(() => { /* the button uploads it again when clicked */ });
+};
 const closeDoc = () => { docView = null; $("mock-body").replaceChildren(); renderDoc(); }; // an emptied panel also stops a running preview
 function docCard(d) {
   const mock = d.kind === "mockup";

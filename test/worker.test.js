@@ -189,7 +189,7 @@ function fakeBucket() {
   const m = new Map();
   return { m,
     head: async (k) => (m.has(k) ? { customMetadata: m.get(k).meta } : null),
-    get: async (k) => (m.has(k) ? { body: m.get(k).body } : null),
+    get: async (k) => (m.has(k) ? { body: m.get(k).body, text: async () => m.get(k).body } : null),
     put: async (k, body, o) => { m.set(k, { body, meta: o.customMetadata }); },
     delete: async (k) => { m.delete(k); },
     list: async ({ prefix }) => ({ objects: [...m.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })), truncated: false }) };
@@ -235,7 +235,9 @@ test("GET /p/<id>/ serves the page to anybody, sandboxed and not indexed; a miss
   const a = await (await pubCall("/publish", { token: TOK, html: HTML }, { SITES })).json();
   const res = await worker.fetch(new Request(`https://w.test/p/${a.id}/`), { ALLOWED_ORIGINS: "https://pro.situs.id", SITES }, { waitUntil() {} });
   assert.equal(res.status, 200);
-  assert.equal(await res.text(), HTML);
+  const served = await res.text();
+  assert.match(served, /^<!doctype html><html><head><script>\(function\(\)\{try\{window\.localStorage/, "a storage stand-in comes first");
+  assert.ok(served.endsWith("<body><h1>Halo</h1></body></html>"), "then the page as it is");
   assert.match(res.headers.get("Content-Security-Policy"), /^sandbox allow-scripts/);
   assert.doesNotMatch(res.headers.get("Content-Security-Policy"), /allow-same-origin/);
   assert.match(res.headers.get("X-Robots-Tag"), /noindex/);
@@ -249,9 +251,10 @@ test("publish: one folder holds every stage as its own file, and its address alw
   const done = await (await pubCall("/publish", { id: design.id, token: TOK, html: HTML + "<!--js-->", file: "build" }, { SITES })).json();
   assert.equal(done.id, design.id, "the same folder");
   const get = (path) => worker.fetch(new Request(`https://w.test${path}`), { SITES }, { waitUntil() {} });
-  assert.equal(await (await get(`/p/${design.id}/page.html`)).text(), HTML, "the designer's stage keeps its own address");
-  assert.equal(await (await get(`/p/${design.id}/build.html`)).text(), HTML + "<!--js-->");
-  assert.equal(await (await get(`/p/${design.id}/`)).text(), HTML + "<!--js-->", "the folder shows the newest");
+  const page = async (path) => (await (await get(path)).text()).replace(/<script>\(function\(\)\{try\{window\.localStorage[\s\S]*?<\/script>/, "").replace("<head></head>", "");
+  assert.equal(await page(`/p/${design.id}/page.html`), HTML, "the designer's stage keeps its own address");
+  assert.equal(await page(`/p/${design.id}/build.html`), HTML + "<!--js-->");
+  assert.equal(await page(`/p/${design.id}/`), HTML + "<!--js-->", "the folder shows the newest");
   assert.equal((await get(`/p/${design.id}/`)).headers.get("Cache-Control"), "no-cache", "a revision shows at once");
   assert.equal((await pubCall("/publish", { id: design.id, token: TOK, html: HTML, file: "../x" }, { SITES })).status, 400);
   assert.equal((await pubCall("/publish", { id: design.id, token: "b".repeat(32), html: HTML, file: "page" }, { SITES })).status, 403, "nobody else writes into it");
