@@ -267,8 +267,13 @@ export function createProjectView({ host, deps }) {
   }
   /** The devops colleague puts the finished page online by himself: first time, or again after a revision (the same folder, the same link).
    *  The visitor can take it down; then it stays down until they ask for it again. */
+  const publishing = new Set(); // projects being published right now (so the screen never says "publishing" for something nobody is doing)
   async function autoPublish(p, main) {
-    if (!main || main.kind !== "mockup" || p.takenDown) return;
+    if (!main || main.kind !== "mockup" || p.takenDown || publishing.has(p.id)) return;
+    publishing.add(p.id);
+    try { await autoPublishNow(p, main); } finally { publishing.delete(p.id); }
+  }
+  async function autoPublishNow(p, main) {
     if (p.published && p.published.size === main.content.length) return; // nothing new to put online
     const devops = p.plan.find((x) => x.agent === "devops")?.agent ?? "devops";
     deps.team.busy(devops, "menerbitkan halaman…"); say("Devops menerbitkan halaman."); p.publishError = null; render();
@@ -290,7 +295,8 @@ export function createProjectView({ host, deps }) {
     const again = () => { const b = button(p.takenDown ? "Terbitkan lagi" : "Coba terbitkan lagi", "globe", "pj-btn", () => run(b, "Menerbitkan…", async () => { await publish(p, main); render(); })); return b; };
     if (!pub) {
       if (p.takenDown || p.publishError) row.append(again());
-      else row.append(el("span", "pj-hint", "Devops sedang menerbitkan halaman ini…"));
+      else if (publishing.has(p.id)) row.append(el("span", "pj-hint", "Devops sedang menerbitkan halaman ini…"));
+      else row.append(again());
     } else {
       const a = el("a", "pj-link", pub.url); a.href = pub.url; a.target = "_blank"; a.rel = "noopener noreferrer";
       const copy = button("Salin tautan", "copy", "pj-btn", async () => { try { await navigator.clipboard.writeText(pub.url); msg.textContent = "Tautan disalin."; } catch { msg.textContent = pub.url; } });
@@ -324,6 +330,8 @@ export function createProjectView({ host, deps }) {
     host.replaceChildren(p ? runView(p) : startView(), live);
     host.scrollTop = keep;
     api.onChange?.(p);
+    // a finished project that was never published (the page was closed while Devops was at it): Devops does it now
+    if (p?.status === "done" && !p.published && !p.takenDown && !p.publishError && !running) { const main = primaryArtifact(p); if (main?.kind === "mockup") autoPublish(p, main); }
     deps.route?.(p ? p.id : null); // the address follows the screen: #proyek/<id> for a project, #proyek for the start screen
   }
 
