@@ -103,3 +103,7 @@ test("a code-only point from QA goes straight back to the engineer, who changes 
   assert.equal(artifacts("page").length, 1, "the designer is not involved");
   assert.ok(prompts.some((p) => /YOUR PREVIOUS VERSION OF THE FILE[\s\S]*REVIEW FEEDBACK from Sinta[\s\S]*Form booking tidak memberi konfirmasi/.test(p)));
 });
+
+test("QA labels for content, layout or accessibility go to the designer too", () => {
+  assert.deepEqual(splitChanges("- [testimoni] Verifikasi keaslian testimoni\n- [aksesibilitas] Kontras tombol kurang\n- [kode] Link #contact rusak"), { design: "- Verifikasi keaslian testimoni\n- Kontras tombol kurang", code: "- Link #contact rusak" });
+});

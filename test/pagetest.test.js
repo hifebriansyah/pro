@@ -102,3 +102,21 @@ test("in a project: a bug the test run finds goes back to the engineer, his fix 
   assert.match(qa, /TEST RUN \(the page was loaded and used like a visitor would[\s\S]*- passed: the menu button opens the menu/);
   assert.equal(events.at(-1).type, "done");
 });
+
+test("in a project: a broken link in the markup can be fixed in the engineer's fix round, with a markup change next to his script", async () => {
+  const designer = `<!doctype html><html><head></head><body>${GOOD_BODY.replace('href="#harga"', 'href="#prices"')}${"<p>isi halaman</p>".repeat(400)}</body></html>`;
+  const prompts = [], events = [];
+  const chatFn = async (prompt) => {
+    prompts.push(prompt);
+    const title = /YOUR TASK: (.+)/.exec(prompt)?.[1] ?? "?";
+    if (title === "Halaman jadi dengan JavaScript") return { text: /DOES NOT WORK YET/.test(prompt) ? `<change><find>href="#prices"</find><replace>href="#harga"</replace></change><document title="script.js">${GOOD_SCRIPT}</document><handoff>Tautan diperbaiki.</handoff>` : `<document title="script.js">${GOOD_SCRIPT}</document><handoff>n.</handoff>` };
+    if (title === "Halaman landing page") return { text: /ONLY PART 2/.test(prompt) ? "</body></html>" : `<mockup title="H">${designer.replace("</body></html>", "")}<!-- BAGIAN 2 -->` };
+    const gate = /<verdict>approved<\/verdict> or/.test(prompt);
+    return { text: `<document title="${title}">\n# ${title}\n${"isi ".repeat(700)}\n</document><handoff>n.</handoff>${gate ? "<verdict>approved</verdict>" : ""}` };
+  };
+  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page untuk toko kucing", playbook: "website", provider: "quran" })), { send: (e) => events.push(e), chatFn, personas: loadPersonas(), skills: new Map() });
+  assert.match(prompts.find((p) => /DOES NOT WORK YET/.test(p)), /points to #prices, which is not on the page/);
+  const build = events.find((e) => e.type === "artifact" && e.id === "build");
+  assert.match(build.content, /href="#harga"/);
+  assert.deepEqual(build.test.problems, []);
+});

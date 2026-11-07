@@ -63,7 +63,7 @@ const hideCss = (html) => String(html).replace(/(<style[^>]*>)([\s\S]*?)(<\/styl
 export const editsFile = (step, revision) => !!step.edits || (step.kind === "mockup" && !!revision?.previous);
 
 // QA's change list says who it is for, so a design point goes to the designer and a code point to the engineer
-const DESIGN_TAG = /^\s*(?:[-*•]|\d+[.)])?\s*\[(?:desain|design|tampilan|ui|ux|konten|copy|naskah)\]\s*/i;
+const DESIGN_TAG = /^\s*(?:[-*•]|\d+[.)])?\s*\[(?:desain|design|tampilan|ui|ux|konten|content|copy|naskah|teks|testimoni|gambar|layout|tata ?letak|warna|tipografi|aksesibilitas|accessibility|a11y)\]\s*/i;
 const CODE_TAG = /^\s*(?:[-*•]|\d+[.)])?\s*\[(?:kode|code|js|javascript|fungsi)\]\s*/i;
 export function splitChanges(changes) {
   const design = [], code = [];
@@ -184,7 +184,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
       if (signal?.aborted) return null;
       send({ type: "step", phase: "start", ...info, attempt });
       try {
-        if (step.parts === 2 && !editsFile(step, extra.revision)) { const page = await inParts(step, info, persona, extra); if (page) return page; throw new Error("halaman tidak terbaca"); }
+        if (step.parts === 2 && !editsFile(step, extra.revision)) { const page = await inParts(step, info, persona, { ...extra, compact }); if (page) return page; throw new Error("halaman tidak terbaca"); }
         const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra, compact });
         summary.calls++;
         let reply = await chatFn(prompt, { signal });
@@ -251,14 +251,14 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
         const prompt = [projectPersona(persona), "---", "PROJECT MODE: you are not chatting now; answer with the code only.", `You are ${byId(step.agent).name}, ${byId(step.agent).role}. PROJECT GOAL\n${body.goal}`, `YOUR TASK: ${step.title}\nFix the script of the page you finished.`,
           `THE PAGE YOU FINISHED, what is in it:\n${outlineOf(html)}`,
           `ITS SCRIPT DOES NOT WORK YET. An automatic check and a test run (the page loaded and clicked through like a visitor would) found:\n${problems.map((p) => "- " + p).join("\n")}`,
-          `Answer with ONLY the corrected, complete JavaScript as <document title="script.js">...code...</document> (no HTML, no <script> tags, no code fence), then <handoff>one sentence</handoff>. Use only ids listed above. Check every bracket, quote and parenthesis; write simpler code where you are unsure.`,
+          `Answer with the corrected, complete JavaScript as <document title="script.js">...code...</document> (no <script> tags, no code fence), then <handoff>one sentence</handoff>. When a problem is in the markup (a link to a section that does not exist, a missing id), also send <change><find>exact text of the file</find><replace>what it becomes</replace></change> for it, before the script. Use only ids listed above or that you add. Check every bracket, quote and parenthesis; write simpler code where you are unsure.`,
           `THE CURRENT SCRIPT\n${cut(lastScript(html), 14_000)}`].join("\n\n");
         summary.calls++;
         let reply = await chatFn(prompt, { signal });
         reply = await finishReply(reply, "the corrected JavaScript", chatFn, { signal }, { onTool: () => { summary.calls++; } });
-        const js = parseEdits(String(reply.text ?? "")).js;
-        if (!js) continue;
-        const next = repair(replaceLastScript(html, js));
+        const fix = parseEdits(String(reply.text ?? ""));
+        if (!fix.js && !fix.changes.length) continue;
+        const next = repair(applyEdits(html, { changes: fix.changes, js: fix.js }, { replaceScript: true }).html); // markup fixes too (a link to a missing section)
         const after = await inspect(next);
         if (after.problems.length <= problems.length) ({ problems, test } = after, html = next); // never take a "fix" that breaks more
       } catch { break; }
