@@ -27,7 +27,7 @@ test("theme: the script in <head> restores a saved choice before the styles, wit
 });
 
 test("theme: the sun / moon button is in the sidebar header and the address-bar colours match the meta tags", () => {
-  assert.match(html, /<aside class="side">\s*<header>\s*<h1>[^<]*<\/h1>\s*(?:<select[^>]*id="provider"[\s\S]*?<\/select>\s*)?<button class="icon-btn" id="theme"/);
+  assert.match(html, /<aside class="side">\s*<header>\s*<h1>[^<]*<\/h1>\s*(?:<button class="of-enter"[\s\S]*?<\/button>\s*)?(?:<select[^>]*id="provider"[\s\S]*?<\/select>\s*)?<button class="icon-btn" id="theme"/);
   const light = /<meta name="theme-color" content="(#[0-9a-f]{6})" media="\(prefers-color-scheme: light\)">/.exec(html)?.[1];
   const dark = /<meta name="theme-color" content="(#[0-9a-f]{6})" media="\(prefers-color-scheme: dark\)">/.exec(html)?.[1];
   assert.match(html, new RegExp(`const THEME_COLOR = \\{ light: "${light}", dark: "${dark}" \\}`));

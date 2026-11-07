@@ -1,4 +1,4 @@
-# Deploy the static chat site (index.html, manifest, logo, share image, icons/, personas/) to GitHub Pages
+# Deploy the static chat site (index.html, manifest, logo, share image, icons/, personas/, office/) to GitHub Pages
 name: Deploy to Pages
 
 on:
@@ -34,7 +34,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html CNAME .nojekyll manifest.webmanifest logo.svg favicon.ico og-image.png _site/
-          cp -r personas icons _site/
+          cp -r personas icons office _site/
       - name: Version the icon addresses (cache busting)
         run: python3 tools/stamp_icons.py _site
       - name: Setup Pages

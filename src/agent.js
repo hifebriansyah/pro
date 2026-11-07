@@ -19,7 +19,7 @@ const SKILL_CHARS = 8000; // instructions are not search results: do not cut the
  */
 export function today(timeZone) {
   if (typeof timeZone === "number") return new Date(Date.now() + (Number.isFinite(timeZone) ? timeZone : 0) * 60_000).toISOString().slice(0, 10); // NaN (a bad setting) is UTC, never an error
-  return new Date().toLocaleDateString("en-CA", { timeZone });
+  return new Date(Date.now()).toLocaleDateString("en-CA", { timeZone }); // Date.now(), not the bare clock, so a test (or a faked clock) moves both paths
 }
 
 export function toolInstructions(tools = TOOLS, skills = new Map(), timeZone) {

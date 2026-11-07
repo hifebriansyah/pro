@@ -81,6 +81,18 @@ node bin/proxy.js                          # the same /agent on 127.0.0.1:8787, 
 
 `show_image` finds one existing photo on Wikimedia Commons (free, no key, licensed) and shows it under the reply. It searches for a photo, it never generates one.
 
+## The virtual office (Kantor)
+
+The **Kantor** button in the chat list opens a 3D office (three.js) where the 13 professionals are low-poly people, drawn after their photos (hair, skin, glasses, jacket; `LOOKS` in `office/core.js`). It is a way to see the team and to chat: click a person, or their name in the team bar, and the chat docks beside the office (full screen on a phone, with the arrow back to the office).
+
+- **Working:** whoever has an answer being written walks to their desk, sits and types, their screen glows, and a bubble over them says what they are doing ("mencari ‘…’ di internet…", "membaca halaman web…", the same status the chat shows). When the answer is done they stay a moment with a green "Selesai ✓", then get up.
+- **Idle:** everybody else wanders: coffee, the cooler, the sofa and armchairs, the meeting table, the whiteboard, the shelf, the printer, or just looking around. They avoid the furniture (A* on a grid) and never share a seat.
+- **Chatting with someone:** they stop where they are, turn to face you and wave, and the camera follows them; let go and they carry on.
+- **Controls:** drag to turn (a mouse), or drag the floor (a finger); wheel or pinch to zoom; the buttons zoom, reset the view, pause everything and switch day and night with the page theme. Every person is a real button (Tab, Enter), the canvas is described for screen readers, and with *reduce motion* set nobody wanders (people still go to their desk to work).
+- **Code:** `office/core.js` is the floor plan, pathfinding and what each person does (no 3D, no DOM: unit-tested in `test/office-core.test.js`); `office/scene.js` builds the building, the furniture and the people; `office/office.js` is the camera, picking, name tags and the loop. `index.html` only has the button, the view and a few lines that tell the office who is busy.
+- **three.js** (a pinned release, with its integrity hash) is fetched from cdnjs only when the office is first opened, so the chat stays as light as before. The page publishes `office/` with the rest (see the workflow). Opening `#kantor` goes straight to the office.
+- **Limits:** the office is a picture of the state, not a second chat: it does not send anything by itself. Bubbles show the status of the answer in flight; there is no history of past work.
+
 ## Avatars
 
 Each professional has a photo, `personas/<name>.jpg` (256x256), shown round in the chat list and header; it is set by `avatar:` on the professional's line in `AGENTS`, and if a file is missing the first letter of the name on the professional's colour is shown instead. `python3 tools/make_image.py personas/*.jpg` makes new pictures small and square, keeping your originals in `personas/originals/` (git-ignored, so keep your own backup); needs `pip install pillow`. Options: `--size`, `--quality`, `--focus`, `--format jpg|webp`, `--out DIR`, `--no-backup`.
