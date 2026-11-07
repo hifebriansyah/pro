@@ -80,7 +80,7 @@ export function createProjectView({ host, deps }) {
     else if (ev.type === "step" && ev.phase === "end" && s) { deps.team.busy(s.agent, null); if (ev.status === "failed") say(`${s.title} gagal.`); }
     else if (ev.type === "artifact" && s) say(`${s.title} selesai.`);
     else if (ev.type === "handoff") deps.team.visit(ev.from, ev.to);
-    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main); } // the result itself opens by itself
+    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main); autoPublish(p, main); } // the result itself opens by itself
     else if (ev.type === "paused") say(ev.reason === "failed" ? "Proyek berhenti karena satu langkah gagal." : "Proyek dijeda.");
   }
   async function readEvents(res, onEvent) {
@@ -258,29 +258,39 @@ export function createProjectView({ host, deps }) {
     if (!res || !res.ok) throw new Error(data.error || "layanan penerbitan tidak bisa dihubungi, coba lagi");
     return data;
   }
+  /** The devops colleague puts the finished page online by himself: first time, or again after a revision (the same folder, the same link).
+   *  The visitor can take it down; then it stays down until they ask for it again. */
+  async function autoPublish(p, main) {
+    if (!main || main.kind !== "mockup" || p.takenDown) return;
+    if (p.published && p.published.size === main.content.length) return; // nothing new to put online
+    const devops = p.plan.find((x) => x.agent === "devops")?.agent ?? "devops";
+    deps.team.busy(devops, "menerbitkan halaman…"); say("Devops menerbitkan halaman."); p.publishError = null; render();
+    try { await publish(p, main); say("Halaman sudah terbit."); }
+    catch (e) { p.publishError = e.message; }
+    deps.team.busy(devops, null); persist(true); render();
+  }
+  async function publish(p, main) {
+    const pub = p.published, token = pub?.token ?? randomToken();
+    const r = await callPublish("publish", { id: pub?.id, token, html: main.content });
+    p.published = { id: r.id, token, url: r.url, at: Date.now(), size: main.content.length }; p.takenDown = false; p.publishError = null;
+    persist(true);
+  }
   function publishRow(p, main) {
     const row = el("div", "pj-publish");
     const pub = p.published;
-    const msg = el("p", "pj-hint");
-    const busy = (b, on) => { b.disabled = on; };
-    const run = async (b, label, work) => { busy(b, true); msg.textContent = label; try { await work(); } catch (e) { msg.textContent = e.message; } busy(b, false); };
-    const send = async () => {
-      const token = pub?.token ?? randomToken();
-      const r = await callPublish("publish", { id: pub?.id, token, html: main.content });
-      p.published = { id: r.id, token, url: r.url, at: Date.now(), size: main.content.length };
-      persist(true); render();
-    };
+    const msg = el("p", "pj-hint", p.publishError ?? "");
+    const run = async (b, label, work) => { b.disabled = true; msg.textContent = label; try { await work(); } catch (e) { msg.textContent = e.message; } b.disabled = false; };
+    const again = () => { const b = button(p.takenDown ? "Terbitkan lagi" : "Coba terbitkan lagi", "globe", "pj-btn", () => run(b, "Menerbitkan…", async () => { await publish(p, main); render(); })); return b; };
     if (!pub) {
-      const b = button("Terbitkan", "globe", "pj-btn", () => run(b, "Menerbitkan…", send));
-      row.append(b, el("span", "pj-hint", "Dapat tautan publik untuk dibagikan. Hilang sendiri 30 hari setelah terbitan terakhir."));
+      if (p.takenDown || p.publishError) row.append(again());
+      else row.append(el("span", "pj-hint", "Devops sedang menerbitkan halaman ini…"));
     } else {
       const a = el("a", "pj-link", pub.url); a.href = pub.url; a.target = "_blank"; a.rel = "noopener noreferrer";
-      const stale = pub.size !== main.content.length;
-      const upd = button(stale ? "Perbarui terbitan" : "Terbitkan ulang", "retry", "pj-btn", () => run(upd, "Memperbarui…", send));
       const copy = button("Salin tautan", "copy", "pj-btn", async () => { try { await navigator.clipboard.writeText(pub.url); msg.textContent = "Tautan disalin."; } catch { msg.textContent = pub.url; } });
-      const del = button("Cabut", "trash", "pj-btn", () => run(del, "Mencabut…", async () => { await callPublish("unpublish", { id: pub.id, token: pub.token }); delete p.published; persist(true); render(); }));
-      row.append(a, stale ? el("span", "pj-hint", "Halamannya sudah direvisi: perbarui agar tautan yang sama menampilkan versi terbaru.") : "", el("div", "pj-ctl"));
-      row.lastChild.append(upd, copy, del);
+      const del = button("Turunkan", "trash", "pj-btn", () => run(del, "Menurunkan…", async () => { await callPublish("unpublish", { id: pub.id, token: pub.token }); delete p.published; p.takenDown = true; persist(true); render(); }));
+      row.append(el("span", "pj-hint", "Sudah terbit oleh Devops. Kalau kamu minta revisi, terbitan ini ikut diperbarui di tautan yang sama. Hilang sendiri 30 hari setelah terbitan terakhir."), a);
+      const ctl = el("div", "pj-ctl"); ctl.append(copy, del); row.append(ctl);
+      if (pub.size !== main.content.length) row.append(again());
     }
     row.append(msg);
     return row;
