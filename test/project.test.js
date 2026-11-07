@@ -157,7 +157,7 @@ test("the page: the project screen is loaded when first opened, the office hears
   assert.match(html, /id="project"/);
   assert.match(html, /id="pj-body"/);
   assert.match(html, /\.app\.project-mode \.side \{ display: none; \}/);
-  assert.match(html, /location\.hash === "#proyek"/);
+  assert.match(html, /#proyek\(\?:\\\/\(\[\\w-\]\+\)\)\?\$/, "the address #proyek/<id> opens one project");
   assert.match(html, /team: \{\s*busy: \(id, text\)[\s\S]*visit: \(from, to\)/);
   assert.match(html, /const teamBusy = new Map\(\)/);
   assert.match(workflow, /cp -r personas icons office project _site\//);

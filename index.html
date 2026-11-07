@@ -318,6 +318,7 @@
   .pj-primary { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; transition: filter .15s, transform .15s; }
   .pj-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
   .pj-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .pj-back { align-self: flex-start; }
   .pj-hint { color: var(--muted); font-size: 13px; margin: 0; flex: 1; min-width: 220px; }
   .pj-recent { margin-top: 40px; }
   .pj-recent h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 12px; }
@@ -1210,14 +1211,16 @@ async function startOffice() {
     officeMessage([el("b", null, noGl ? "Peramban ini tidak mendukung grafik 3D (WebGL)" : "Kantor tidak bisa dimuat"), el("span", null, noGl ? "Gunakan daftar obrolan di sebelah." : String(e?.message ?? e)), ...(noGl ? [] : [retry])]);
   }
 }
-function setView(view) {
+// The address: #kantor, #proyek (the start screen), #proyek/<id> (one project), else the chat.
+const parseHash = (h = location.hash) => { const m = /^#proyek(?:\/([\w-]+))?$/.exec(h); return h === "#kantor" ? { view: "office" } : m ? { view: "project", id: m[1] ?? null } : { view: "chat" }; };
+function setView(view, id) {
   officeOn = view === "office";
   projectOn = view === "project";
   $("app").classList.toggle("office-mode", officeOn);
   $("app").classList.toggle("project-mode", projectOn);
-  try { history.replaceState(null, "", officeOn ? "#kantor" : projectOn ? "#proyek" : location.pathname + location.search); } catch {}
+  try { history.replaceState(null, "", officeOn ? "#kantor" : projectOn ? (parseHash().view === "project" ? location.hash : "#proyek") : location.pathname + location.search); } catch {}
   if (officeOn) { startOffice(); renderRoster(); } else office?.stop();
-  if (projectOn) openProject();
+  if (projectOn) openProject(id);
   if (view === "chat") closeDoc();
   paintModes();
   paintOfficeTools();
@@ -1288,7 +1291,7 @@ $("of-pause").onclick = () => { if (office) { office.setPaused(!office.paused); 
 $("of-theme").onclick = () => $("theme").click();
 $("pj-theme").onclick = () => $("theme").click();
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && officeOn && state.current && !docView && !e.defaultPrevented) $("back").click(); });
-addEventListener("hashchange", () => setView(location.hash === "#kantor" ? "office" : location.hash === "#proyek" ? "project" : "chat"));
+addEventListener("hashchange", () => { const r = parseHash(); setView(r.view, r.id); });
 officeReady = true;
 paintModes();
 paintOfficeTools();
@@ -1303,19 +1306,21 @@ const downloadText = (name, text, type = "text/markdown") => {
   a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
   a.click(); URL.revokeObjectURL(a.href);
 };
-async function openProject() {
-  if (projectView) { projectView.show(); return; }
+async function openProject(id) {
+  if (projectView) { projectView.show(id); return; }
   try {
     const { createProjectView } = await import("./project/view.js");
     projectView = createProjectView({ host: $("pj-body"), deps: {
       el, agentOf, paintAvatar, openDoc, closeDoc, openChat: (id) => open(id), proxy: PROXY, getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
       download: downloadText,
+      // the address follows the project screen: a new entry in the history for each project, so the browser's back button works
+      route: (id) => { const want = id ? `#proyek/${id}` : "#proyek"; if (projectOn && location.hash !== want) try { history.pushState(null, "", want); } catch {} },
       team: {
         busy: (id, text) => { if (text) teamBusy.set(id, text); else teamBusy.delete(id); },
         visit: (from, to) => { teamVisits.set(from, to); setTimeout(() => { if (teamVisits.get(from) === to) teamVisits.delete(from); }, 5000); },
       },
     } });
-    if (projectOn) projectView.show();
+    if (projectOn) projectView.show(id);
   } catch (e) {
     const retry = el("button", "of-retry", "Coba lagi"); retry.type = "button"; retry.onclick = () => openProject();
     $("pj-body").replaceChildren(Object.assign(el("div", "of-state"), {})); $("pj-body").firstChild.append(el("b", null, "Proyek tidak bisa dimuat"), el("span", null, String(e?.message ?? e)), retry);
@@ -1326,9 +1331,7 @@ $("pj-new").onclick = () => projectView?.newProject();
 
 if (!chatById(state.current)) state.current = null;
 renderList(); renderChat();
-if (location.hash === "#kantor") setView("office");
-else if (location.hash === "#proyek") setView("project");
-else paintModes();
+{ const r = parseHash(); if (r.view !== "chat") setView(r.view, r.id); else paintModes(); }
 </script>
 </body>
 </html>

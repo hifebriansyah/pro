@@ -16,6 +16,7 @@ const ICON = {
   stop: svg('<rect width="14" height="14" x="5" y="5" rx="2"/>'),
   pencil: svg('<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>'),
   retry: svg('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'),
+  back: svg('<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>'),
   arrow: svg('<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>'),
   file: svg('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>'),
   layout: svg('<rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/>'),
@@ -167,6 +168,7 @@ export function createProjectView({ host, deps }) {
     const wrap = el("div", "pj-run");
     const { done, total } = progress(p);
     const head = el("header", "pj-head");
+    const back = button("Kembali", "back", "pj-btn pj-back", () => api.newProject()); // to the list of projects: the route goes back to #proyek
     const title = el("div", "pj-title"); title.append(el("h2", null, p.title), el("p", null, p.goal));
     const status = el("div", "pj-status");
     const bar = el("div", "pj-bar"); const fill = el("i"); fill.style.width = `${Math.round((done / total) * 100)}%`; bar.append(fill);
@@ -178,7 +180,7 @@ export function createProjectView({ host, deps }) {
     else if (act === "continue") ctl.append(button("Lanjutkan", "play", "pj-btn primary", () => run(p)));
     else if (act === "retry") ctl.append(button("Coba lagi", "retry", "pj-btn primary", () => run(p)));
     if (done) ctl.append(button("Unduh semua", "download", "pj-btn", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))), "text/markdown")));
-    head.append(title, status, ctl);
+    head.append(back, title, status, ctl);
     wrap.append(head);
     if (p.error) wrap.append(errorBox(p.error));
     if (p.status === "paused" && p.pause?.reason === "stopped") wrap.append(note("Proyek dijeda. Hasil yang sudah selesai tetap tersimpan."));
@@ -317,12 +319,14 @@ export function createProjectView({ host, deps }) {
     host.replaceChildren(p ? runView(p) : startView(), live);
     host.scrollTop = keep;
     api.onChange?.(p);
+    deps.route?.(p ? p.id : null); // the address follows the screen: #proyek/<id> for a project, #proyek for the start screen
   }
 
   const api = {
     render, stop, get running() { return !!running; }, get current() { return currentId ? by(currentId) : null; }, onChange: null,
     newProject() { currentId = null; render(); host.scrollTop = 0; },
-    show() { render(); },
+    /** Open the screen; an id from the address opens that project (an unknown one the start screen), no id keeps what was open. */
+    show(id) { if (id !== undefined) currentId = id && by(id) ? id : null; render(); },
     /** A project that is running somewhere else in the app (e.g. started from the chat) could be opened here. */
     open(id) { if (by(id)) { currentId = id; render(); } },
     get count() { return projects.length; },
