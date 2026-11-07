@@ -209,3 +209,17 @@ test("sim: two visitors at one desk stand apart; a visit to oneself or to nobody
   assert.equal(still.snapshot("engineer").action, "type");
   assert.equal(still.snapshot("brand").action, "type");
 });
+
+test("the first look at the office: whoever is at work is already seated at their desk, the others wander as usual", () => {
+  const sim = C.createSim({ ids: AGENT_IDS, seed: 11 });
+  const busy = ["po", "designer", "engineer"];
+  sim.update(DT, Object.fromEntries(busy.map((id) => [id, { busy: true }])));
+  for (const id of busy) {
+    const s = sim.snapshot(id), d = C.deskOf(id);
+    assert.deepEqual([s.mode, s.action, s.sit], ["seated", "type", 1], id);
+    assert.ok(Math.hypot(s.x - d.seat.x, s.z - d.seat.z) < 0.01, `${id} sits at their own desk`);
+  }
+  run(sim, 30, Object.fromEntries(busy.map((id) => [id, { busy: true }])));
+  for (const id of busy) assert.equal(sim.snapshot(id).mode, "seated", `${id} stays at the desk while the work goes on`);
+  assert.ok(AGENT_IDS.filter((id) => !busy.includes(id)).some((id) => sim.snapshot(id).mode !== "seated"), "the others are not pinned to desks");
+});

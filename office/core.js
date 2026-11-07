@@ -235,6 +235,7 @@ export function createSim({ ids, seed = 7, wander = true }) {
   const events = [];
   const between = ([a, b]) => a + rng() * (b - a);
   const desks = Object.fromEntries(ids.map((id) => [id, deskOf(id)]));
+  let opened = false;
 
   const release = (a) => { if (a.poi && taken.get(a.poi) === a.id) taken.delete(a.poi); a.poi = null; };
   const startRoute = (a, to, then) => {
@@ -382,6 +383,16 @@ export function createSim({ ids, seed = 7, wander = true }) {
     setWander(on) { state.wander = !!on; }, // off: everybody stays where they are (people at their desks still work)
     update(dt, inputs = {}, env = {}) {
       dt = Math.min(dt, 0.1);
+      if (!opened) { // the first look at the office (a refresh, or opening it for the first time): whoever is at work is already at their desk, not walking there
+        opened = true;
+        for (const a of agents.values()) if (inputs[a.id]?.busy && desks[a.id]) {
+          const d = desks[a.id];
+          release(a);
+          a.poi = "desk:" + a.id; a.goal = "work"; a.wasBusy = true; a.path = []; a.then = null; a.slide = null;
+          a.x = d.seat.x; a.z = d.seat.z; a.heading = d.heading; a.seatHeading = d.heading; a.approach = d.approach; a.sit = 1; a.speed = 0;
+          a.mode = "seated"; a.action = "type"; a.timer = Infinity; a.atPlace = true;
+        }
+      }
       for (const a of agents.values()) step(a, dt, inputs[a.id] ?? {}, env);
     },
     snapshot(id) { const a = agents.get(id); return { x: a.x, z: a.z, heading: a.heading, sit: a.sit, action: a.action, speed: a.speed / WALK_SPEED, mode: a.mode, poi: a.poi }; },
