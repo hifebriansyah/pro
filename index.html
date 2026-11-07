@@ -1166,6 +1166,7 @@ const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title
 let deepseekAllowed = false; // the Worker's GET /access: only the allowed accounts see and may use DeepSeek
 const authInit = (init = {}) => (accountApi && PROXY === WORKER ? accountApi.requestInit(init) : init); // adds who is asking (the shared sign-in) to a request to our Worker (not to a local proxy)
 let accountApi = null;
+let routedId = null; // the project the address showed last (null: the start screen)
 function paintAccess(allowed) {
   deepseekAllowed = !!allowed;
   for (const id of ["provider", "pj-provider"]) {
@@ -1299,14 +1300,21 @@ async function startOffice() {
 }
 // The address: #kantor, #proyek (the start screen), #proyek/<id> (one project), else the chat.
 const parseHash = (h = location.hash) => { const m = /^#proyek(?:\/([\w-]+))?$/.exec(h); return h === "#kantor" ? { view: "office" } : m ? { view: "project", id: m[1] ?? null } : { view: "chat" }; };
+// The start screen of the projects (#proyek) has nothing open beside it: no chat, no document or page on the right.
+function closePanels() {
+  closeDoc();
+  if (state.current) { state.current = null; save(); renderList(); renderChat(); }
+}
 function setView(view, id) {
+  const was = officeOn ? "office" : projectOn ? "project" : "chat";
+  if (was !== view) closePanels(); // another screen (by a button, the address, or the browser's back button): what was open beside the old one is closed
   officeOn = view === "office";
   projectOn = view === "project";
   $("app").classList.toggle("office-mode", officeOn);
   $("app").classList.toggle("project-mode", projectOn);
   try { history.replaceState(null, "", officeOn ? "#kantor" : projectOn ? (parseHash().view === "project" ? location.hash : "#proyek") : location.pathname + location.search); } catch {}
   if (officeOn) { startOffice(); renderRoster(); } else office?.stop();
-  if (projectOn) openProject(id);
+  if (projectOn) { if (id === null || (id === undefined && !projectView?.current)) closePanels(); openProject(id); }
   if (view === "chat") closeDoc();
   paintModes();
   paintOfficeTools();
@@ -1323,7 +1331,9 @@ for (const nav of document.querySelectorAll("[data-modes]")) {
     const b = el("button"); b.type = "button"; b.dataset.mode = mode; b.title = { chat: "Daftar obrolan", office: "Kantor virtual: lihat tim bekerja", project: "Proyek tim: beri satu tujuan" }[mode];
     b.innerHTML = ICON_MODES[mode]; // constant markup
     b.append(el("span", null, MODE_LABELS[mode]));
-    b.onclick = () => setView(mode);
+    // every click on a mode button closes what is open beside the screen (the chat and the document or page on the right); Proyek goes to #proyek, the
+    // start screen (the list), not back into the project that was open
+    b.onclick = () => { closePanels(); setView(mode, mode === "project" ? null : undefined); }; // (also when the button of the screen already shown is clicked)
     nav.append(b);
   }
 }
@@ -1400,7 +1410,12 @@ async function openProject(id) {
       el, agentOf, paintAvatar, openDoc, closeDoc, setDocUrl, openChat: (id) => open(id), proxy: PROXY, fetch: (url, init) => fetch(url, authInit(init)), getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
       download: downloadText,
       // the address follows the project screen: a new entry in the history for each project, so the browser's back button works
-      route: (id) => { const want = id ? `#proyek/${id}` : "#proyek"; if (projectOn && location.hash !== want) try { history.pushState(null, "", want); } catch {} },
+      route: (id) => {
+        const want = id ? `#proyek/${id}` : "#proyek";
+        if (projectOn && location.hash !== want) try { history.pushState(null, "", want); } catch {}
+        if (projectOn && !id && routedId) closePanels(); // back to the start screen (Kembali, a new project): nothing stays open beside it
+        routedId = id;
+      },
       team: {
         busy: (id, text) => { if (text) teamBusy.set(id, text); else teamBusy.delete(id); },
         visit: (from, to) => { teamVisits.set(from, to); setTimeout(() => { if (teamVisits.get(from) === to) teamVisits.delete(from); }, 5000); },

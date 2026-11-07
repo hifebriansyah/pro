@@ -225,3 +225,14 @@ test("a finished page's test run is kept with the project (strings only, capped)
   assert.match(view, /if \(a\.test\) card\.append\(testReport\(a\.test\)\)/);
   assert.match(view, /li\.textContent = x/, "the report is text");
 });
+
+test("every click on a mode button (Obrolan, Kantor, Proyek) closes the chat and the document on the right; Proyek goes to the start screen, #proyek", () => {
+  assert.match(html, /b\.onclick = \(\) => \{ closePanels\(\); setView\(mode, mode === "project" \? null : undefined\); \};/);
+  assert.match(html, /function closePanels\(\) \{\s*closeDoc\(\);\s*if \(state\.current\) \{ state\.current = null; save\(\); renderList\(\); renderChat\(\); \}\s*\}/);
+  assert.match(html, /if \(projectOn && !id && routedId\) closePanels\(\)/, "and so does going back to the start screen");
+});
+
+test("changing the screen by the address or the browser's back button closes the panels too, not only a button", () => {
+  assert.match(html, /const was = officeOn \? "office" : projectOn \? "project" : "chat";\s*if \(was !== view\) closePanels\(\);/);
+  assert.match(html, /addEventListener\("hashchange", \(\) => \{ const r = parseHash\(\); setView\(r\.view, r\.id\); \}\)/);
+});
