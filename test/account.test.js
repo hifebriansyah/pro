@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { JSDOM } from "jsdom";
-import { avatarUrl, createAccount, fetchUser, loginUrl, onSitus, signOut } from "../account/account.js";
+import { adoptToken, avatarUrl, createAccount, fetchUser, isLocalHost, loginUrl, onSitus, signOut } from "../account/account.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const USER = { name: "Budi Santoso", email: "budi@contoh.id", picture: "https://lh3.googleusercontent.com/a/budi" };
@@ -92,9 +92,33 @@ test("no photo: the first letter; another tab signing in is noticed when this on
   doc.dispatchEvent(new dom.window.Event("visibilitychange"));
   await new Promise((r) => setTimeout(r, 10));
   assert.equal(b.title, "Masuk dengan Google", "the sign-out in another tab shows here");
-  const local = page("localhost");
-  assert.equal(createAccount({ doc: local.doc, loc: local.loc, fetchFn: fakeFetch(s) }).mount(local.doc.getElementById("theme")), null);
-  assert.equal(local.doc.querySelectorAll(".acct").length, 0);
+  const other = page("example.com");
+  assert.equal(createAccount({ doc: other.doc, loc: other.loc, fetchFn: fakeFetch(s) }).mount(other.doc.getElementById("theme")), null, "not our host, not localhost: no button");
+});
+
+test("development: on localhost the button is there; the token the sign-in hands back is kept and taken out of the address, and /me is read with it", async () => {
+  assert.ok(isLocalHost("localhost") && isLocalHost("127.0.0.1") && !isLocalHost("pro.situs.id") && !isLocalHost("localhost.evil.com"));
+  const { doc } = page("localhost");
+  const store = new Map(); const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+  const replaced = [];
+  const loc = { hostname: "localhost", href: "http://localhost/for-fun/pro/#situs_token=abc.def-1", hash: "#situs_token=abc.def-1", pathname: "/for-fun/pro/", search: "?x=1" };
+  const s = { user: USER, calls: [] };
+  const seen = [];
+  const fetchFn = async (url, init = {}) => { seen.push(init); return fakeFetch(s)(url, init); };
+  const acct = createAccount({ doc, loc, fetchFn, storage, hist: { replaceState: (...a) => replaced.push(a) } });
+  assert.equal(store.get("situs:session-token"), "abc.def-1");
+  assert.deepEqual(replaced[0], [null, "", "/for-fun/pro/?x=1"], "the token leaves the address");
+  const b = acct.mount(doc.getElementById("theme"));
+  assert.ok(b, "a button on localhost");
+  await acct.refresh();
+  assert.deepEqual(seen[0], { headers: { Authorization: "Bearer abc.def-1" } }, "no cookie to send: the token is");
+  assert.equal(b.title, "Akun: Budi Santoso");
+  b.click();
+  doc.querySelector(".acct-out").click();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(store.has("situs:session-token"), false, "signing out forgets the token");
+  assert.equal(adoptToken({ hash: "#proyek/abc", pathname: "/", search: "" }, storage, null), false, "any other address is left alone");
+  assert.equal(adoptToken({ hash: "#situs_token=<script>", pathname: "/", search: "" }, storage, null), false, "only token characters");
 });
 
 test("the page mounts it before the theme button of the chat list, the office and the project screen, and the site ships the module", () => {
