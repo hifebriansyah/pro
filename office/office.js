@@ -28,7 +28,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
   const canvas = renderer.domElement;
   canvas.className = "of-canvas";
   canvas.tabIndex = 0;
-  canvas.setAttribute("aria-label", "Kantor virtual: tarik untuk memutar, gulir untuk memperbesar. Pilih karakter dengan mengklik namanya.");
+  canvas.setAttribute("aria-label", "Kantor virtual: tarik untuk memutar, Shift dan tarik atau tombol kanan untuk menggeser, gulir untuk memperbesar. Pilih karakter dengan mengklik namanya.");
   stage.append(canvas, tagsLayer);
   host.append(stage);
 
@@ -164,7 +164,11 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
   canvas.addEventListener("pointercancel", up);
   canvas.addEventListener("pointerleave", () => { if (!pointers.size) hovered = null; });
   canvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.want.zoom = clamp(cam.want.zoom * Math.exp(e.deltaY * 0.0012), ZOOM[0], ZOOM[1]); userMoved = true; }, { passive: false });
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault()); // a right-button drag pans: no browser menu
   canvas.addEventListener("keydown", (e) => {
+    if (e.shiftKey && !selected && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+      panBy({ ArrowLeft: 60, ArrowRight: -60 }[e.key] ?? 0, { ArrowUp: 50, ArrowDown: -50 }[e.key] ?? 0); userMoved = true; e.preventDefault(); return;
+    }
     const step = { ArrowLeft: [0.08, 0], ArrowRight: [-0.08, 0], ArrowUp: [0, -0.06], ArrowDown: [0, 0.06] }[e.key];
     if (step) { cam.want.az = clamp(cam.want.az + step[0], AZ[0], AZ[1]); cam.want.el = clamp(cam.want.el + step[1], EL[0], EL[1]); userMoved = true; e.preventDefault(); }
     else if (e.key === "+" || e.key === "=") { cam.want.zoom = clamp(cam.want.zoom * 0.85, ZOOM[0], ZOOM[1]); e.preventDefault(); }

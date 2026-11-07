@@ -1022,7 +1022,7 @@ async function startOffice() {
     if (!officeOn) return;
     $("of-state").classList.add("hidden");
     const touch = matchMedia("(pointer: coarse)").matches;
-    $("of-view").append(el("div", "of-hint", touch ? "Ketuk karakter untuk mengobrol · geser untuk menggeser · cubit untuk zoom" : "Klik karakter untuk mengobrol · seret untuk memutar · gulir untuk zoom"));
+    $("of-view").append(el("div", "of-hint", touch ? "Ketuk karakter untuk mengobrol · geser untuk menggeser · cubit untuk zoom" : "Klik karakter untuk mengobrol · seret untuk memutar · Shift+seret untuk menggeser · gulir untuk zoom"));
     office.start();
     paintOfficeTools();
   } catch (e) {
