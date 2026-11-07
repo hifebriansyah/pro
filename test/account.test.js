@@ -105,6 +105,10 @@ test("development: on localhost the button is there; the token the sign-in hands
   const s = { user: USER, calls: [] };
   const seen = [];
   const fetchFn = async (url, init = {}) => { seen.push(init); return fakeFetch(s)(url, init); };
+  const none = createAccount({ doc, loc: { hostname: "localhost", href: "http://localhost/", hash: "", pathname: "/", search: "" }, fetchFn, storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  none.mount(doc.getElementById("of-theme"));
+  assert.equal(await none.refresh(), null);
+  assert.equal(seen.length, 0, "localhost with no token asks nobody (a cookie request would be refused there)");
   const acct = createAccount({ doc, loc, fetchFn, storage, hist: { replaceState: (...a) => replaced.push(a) } });
   assert.equal(store.get("situs:session-token"), "abc.def-1");
   assert.deepEqual(replaced[0], [null, "", "/for-fun/pro/?x=1"], "the token leaves the address");

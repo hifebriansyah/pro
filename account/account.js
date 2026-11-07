@@ -88,7 +88,8 @@ export function createAccount({ doc = document, loc = location, fetchFn = fetch,
       paint();
       return b;
     },
-    async refresh() { user = await fetchUser(fetchFn, token()); paint(); return user; },
+    // a page on localhost with no token has nobody signed in, and no cookie to send: nothing to ask
+    async refresh() { const t = token(); user = local && !t ? null : await fetchUser(fetchFn, t); paint(); return user; },
   };
   doc.addEventListener("click", (e) => { if (menu && !menu.contains(e.target)) closeMenu(); });
   doc.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
