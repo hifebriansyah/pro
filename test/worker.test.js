@@ -191,7 +191,8 @@ function fakeBucket() {
     head: async (k) => (m.has(k) ? { customMetadata: m.get(k).meta } : null),
     get: async (k) => (m.has(k) ? { body: m.get(k).body } : null),
     put: async (k, body, o) => { m.set(k, { body, meta: o.customMetadata }); },
-    delete: async (k) => { m.delete(k); } };
+    delete: async (k) => { m.delete(k); },
+    list: async ({ prefix }) => ({ objects: [...m.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })), truncated: false }) };
 }
 const pubCall = (path, body, env) => worker.fetch(new Request(`https://w.test${path}`, { method: "POST", headers: { Origin: "https://pro.situs.id", "Content-Type": "application/json" }, body: JSON.stringify(body) }), { ALLOWED_ORIGINS: "https://pro.situs.id", ...env }, { waitUntil() {} });
 const HTML = "<!doctype html><html><body><h1>Halo</h1></body></html>";
@@ -204,7 +205,7 @@ test("publish: the first time makes a folder, a revision with the same token ove
   assert.equal(a.url, `https://w.test/p/${a.id}/`);
   const b = await (await pubCall("/publish", { id: a.id, token: TOK, html: HTML + "<!--v2-->" }, { SITES })).json();
   assert.equal(b.id, a.id);
-  assert.deepEqual([...SITES.m.keys()], [`${a.id}/index.html`]);
+  assert.deepEqual([...SITES.m.keys()].sort(), [`${a.id}/.owner`, `${a.id}/index.html`]);
   assert.equal(SITES.m.get(`${a.id}/index.html`).body, HTML + "<!--v2-->");
 });
 
@@ -240,3 +241,25 @@ test("GET /p/<id>/ serves the page to anybody, sandboxed and not indexed; a miss
   assert.match(res.headers.get("X-Robots-Tag"), /noindex/);
   assert.equal((await worker.fetch(new Request("https://w.test/p/zzzzzzzzzzzz/"), { SITES }, { waitUntil() {} })).status, 404);
 });
+
+test("publish: one folder holds every stage as its own file, and its address always shows the newest; taking it down removes the whole folder", async () => {
+  const SITES = fakeBucket();
+  const design = await (await pubCall("/publish", { token: TOK, html: HTML, file: "page" }, { SITES })).json();
+  assert.equal(design.fileUrl, `https://w.test/p/${design.id}/page.html`);
+  const done = await (await pubCall("/publish", { id: design.id, token: TOK, html: HTML + "<!--js-->", file: "build" }, { SITES })).json();
+  assert.equal(done.id, design.id, "the same folder");
+  const get = (path) => worker.fetch(new Request(`https://w.test${path}`), { SITES }, { waitUntil() {} });
+  assert.equal(await (await get(`/p/${design.id}/page.html`)).text(), HTML, "the designer's stage keeps its own address");
+  assert.equal(await (await get(`/p/${design.id}/build.html`)).text(), HTML + "<!--js-->");
+  assert.equal(await (await get(`/p/${design.id}/`)).text(), HTML + "<!--js-->", "the folder shows the newest");
+  assert.equal((await get(`/p/${design.id}/`)).headers.get("Cache-Control"), "no-cache", "a revision shows at once");
+  assert.equal((await pubCall("/publish", { id: design.id, token: TOK, html: HTML, file: "../x" }, { SITES })).status, 400);
+  assert.equal((await pubCall("/publish", { id: design.id, token: "b".repeat(32), html: HTML, file: "page" }, { SITES })).status, 403, "nobody else writes into it");
+  assert.equal((await pubCall("/unpublish", { id: design.id, token: TOK }, { SITES })).status, 200);
+  assert.equal(SITES.m.size, 0, "every file and the marker are gone");
+  // a folder published before files existed (its owner on index.html) still belongs to its owner
+  await SITES.put("oldfolder000/index.html", HTML, { customMetadata: { owner: await sha(TOK) } });
+  assert.equal((await pubCall("/publish", { id: "oldfolder000", token: TOK, html: HTML, file: "build" }, { SITES })).status, 200);
+  assert.equal((await pubCall("/publish", { id: "oldfolder000", token: "b".repeat(32), html: HTML }, { SITES })).status, 403);
+});
+const sha = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, "0")).join("");

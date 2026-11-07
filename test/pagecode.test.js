@@ -37,10 +37,11 @@ test("outlineOf: the hooks a script can use, and whether its script compiles", (
 });
 
 const personas = loadPersonas();
+const noTest = async () => ({ ran: false, problems: [], passed: [] }); // these tests are about the check and the assembly; the test run has its own tests
 const run = async (replyFor) => {
   const events = [], prompts = [];
   const chatFn = async (prompt) => { prompts.push(prompt); const title = /YOUR TASK: (.+)/.exec(prompt)?.[1] ?? "?"; return { text: replyFor(title, prompt) }; };
-  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page untuk toko kucing", playbook: "website", provider: "quran" })), { send: (e) => events.push(e), chatFn, personas, skills: new Map() });
+  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page untuk toko kucing", playbook: "website", provider: "quran" })), { send: (e) => events.push(e), chatFn, personas, skills: new Map(), testPage: noTest });
   return { events, prompts };
 };
 const model = (scripts) => {
@@ -199,7 +200,7 @@ async function run3d() {
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     return { text: `<document title="${title}">\n# ${title}\n${"isi ".repeat(700)}\n</document><handoff>n.</handoff>${gate ? "<verdict>approved</verdict>" : ""}` };
   };
-  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page studio game dengan objek 3D memakai three.js", playbook: "website", provider: "quran" })), { send: (e) => events.push(e), chatFn, personas, skills: new Map() });
+  await runTeam(parseTeamBody(JSON.stringify({ goal: "Landing page studio game dengan objek 3D memakai three.js", playbook: "website", provider: "quran" })), { send: (e) => events.push(e), chatFn, personas, skills: new Map(), testPage: noTest });
   return { events, prompts };
 }
 

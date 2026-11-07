@@ -329,10 +329,10 @@ test("runTeam: a draft that is too short is asked for once more, complete; the l
   assert.ok(r.design.content.length > 2500, "the richer version replaced the draft");
   assert.equal(r.prompts.filter((p) => /TOO SHORT AND TOO SIMPLE/.test(p)).length, 1, "asked once, not in a loop");
   assert.match(r.prompts.find((p) => /TOO SHORT AND TOO SIMPLE/.test(p)), /YOUR DRAFT\n# Design system/);
-  assert.equal(r.summary.calls, 8, "seven steps and one more call for the design system");
+  assert.equal(r.summary.calls, 9, "seven steps, the page in two halves, and one more call for the design system");
   assert.equal(r.events.at(-1).type, "done");
   assert.match(r.prompts.find((p) => /YOUR TASK: Halaman landing page/.test(p)), /must stay under about 8,000 characters/, "the page is told its size limit");
-  assert.equal(r.prompts.filter((p) => /YOUR TASK: Halaman landing page/.test(p)).length, 1, "a page is never sent back for being short");
+  assert.equal(r.prompts.filter((p) => /YOUR TASK: Halaman landing page/.test(p)).length, 2, "the page in two halves, never sent back for being short");
   r = await run(() => { throw new Error("model down"); });
   assert.ok(r.design.content.length < 2500 && r.design.content.length > 100, "the draft is kept when the second try fails");
   assert.equal(r.events.at(-1).type, "done");

@@ -14,5 +14,8 @@
     "chat": "node bin/chat.js",
     "test": "node --test",
     "test:offline": "ISLAM_SKIP_LIVE=1 node --test"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
   }
 }

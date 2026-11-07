@@ -43,6 +43,10 @@ export function applyEvent(p, ev, now = Date.now()) {
     }
     case "artifact":
       p.artifacts[ev.id] = { kind: ev.kind, title: ev.title, content: ev.content, note: ev.note ?? "", revision: ev.revision ?? 0 };
+      if (ev.test && typeof ev.test === "object") { // the test run of a finished page: what passed and what did not (strings only, a few of each)
+        const list = (x) => (Array.isArray(x) ? x.filter((t) => typeof t === "string").slice(0, 12).map((t) => t.slice(0, 300)) : []);
+        p.artifacts[ev.id].test = { passed: list(ev.test.passed), problems: list(ev.test.problems) };
+      }
       step(p, ev.id).status = "done";
       break;
     case "handoff": feed(p, { type: "handoff", from: ev.from, to: ev.to, text: ev.note ?? "" }, now); break;

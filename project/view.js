@@ -84,9 +84,9 @@ export function createProjectView({ host, deps }) {
     const s = ev.id ? p.plan.find((x) => x.id === ev.id) : null;
     if (ev.type === "step" && ev.phase === "start" && s) { deps.team.busy(s.agent, `menulis ${s.title}…`); say(`${agentOf(s.agent).name} mulai menulis ${s.title}.`); }
     else if (ev.type === "step" && ev.phase === "end" && s) { deps.team.busy(s.agent, `mengerjakan proyek "${p.title}"`); if (ev.status === "failed") say(`${s.title} gagal.`); }
-    else if (ev.type === "artifact" && s) say(`${s.title} selesai.`);
+    else if (ev.type === "artifact" && s) { say(`${s.title} selesai.`); if (ev.kind === "mockup") publishStage(p, ev.id, { id: ev.id, ...p.artifacts[ev.id] }); }
     else if (ev.type === "handoff") deps.team.visit(ev.from, ev.to);
-    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main, p); autoPublish(p, main); } // the result itself opens by itself
+    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main, p); if (main) publishStage(p, main.id, main); } // the result itself opens by itself
     else if (ev.type === "paused") say(ev.reason === "failed" ? "Proyek berhenti karena satu langkah gagal." : "Proyek dijeda.");
   }
   async function readEvents(res, onEvent) {
@@ -102,7 +102,11 @@ export function createProjectView({ host, deps }) {
     }
   }
   // the project's result, once Devops has published it, carries its public address (the viewer offers "open in a new window")
-  const urlOf = (a, p) => (p && a.id && a.id === p.primary && p.published?.size === a.content.length ? p.published.url : null);
+  const urlOf = (a, p) => {
+    const f = a.id ? p?.published?.files?.[a.id] : null;
+    if (f && f.sig === sig(a.content)) return f.url; // this stage, exactly as it is online
+    return p && a.id && a.id === p.primary && p.published?.size === a.content.length ? p.published.url : null; // folders from before stages had files
+  };
   const showArtifact = (a, p) => deps.openDoc(a.kind === "mockup" ? { kind: "mockup", title: a.title, html: a.content, url: urlOf(a, p) } : { kind: "doc", title: a.title, markdown: a.content });
   const saveArtifact = (a, p) => (a.kind === "mockup" ? deps.download(`${slug(a.title || p.title)}.html`, a.content, "text/html") : deps.download(`${slug(a.title || p.title)}.md`, a.content, "text/markdown"));
   const stop = () => { if (running) { running.stopped = true; running.ac.abort(); } };
@@ -230,6 +234,7 @@ export function createProjectView({ host, deps }) {
       open.onclick = () => showArtifact({ id: s.id, ...a }, p);
       card.append(open);
       if (a.note) { const n = el("p", "pj-handoff"); n.append(el("span", "pj-handoff-label", "Catatan serah-terima"), document.createTextNode(a.note)); card.append(n); }
+      if (a.test) card.append(testReport(a.test));
     }
     if (rv) {
       const r = el("div", "pj-review"); r.dataset.verdict = rv.verdict;
@@ -267,29 +272,36 @@ export function createProjectView({ host, deps }) {
     if (!res || !res.ok) throw new Error(data.error || "layanan penerbitan tidak bisa dihubungi, coba lagi");
     return data;
   }
-  /** The devops colleague puts the finished page online by himself: first time, or again after a revision (the same folder, the same link).
-   *  The visitor can take it down; then it stays down until they ask for it again. */
-  const publishing = new Set(); // projects being published right now (so the screen never says "publishing" for something nobody is doing)
-  async function autoPublish(p, main) {
-    if (!main || main.kind !== "mockup" || p.takenDown || publishing.has(p.id)) return;
-    publishing.add(p.id);
-    try { await autoPublishNow(p, main); } finally { publishing.delete(p.id); }
+  /** Devops puts every page the team makes online as soon as it is made, into the project's one folder: the designer's page (page.html) right after she
+   *  finishes, so the owner can look at the design; the engineer's finished page (build.html); every revision of either replaces its file. The folder's
+   *  own address always shows the newest. One upload at a time per project (the first one makes the folder). Taken down by the visitor: it stays down
+   *  until they publish again. */
+  const queue = new Map(); // project id -> the upload in progress
+  const sig = (text) => { let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0; return `${text.length}:${h >>> 0}`; }; // same page, same fingerprint
+  const publishing = { has: (id) => queue.has(id) };
+  function publishStage(p, stepId, art) {
+    if (!art || art.kind !== "mockup" || p.takenDown) return Promise.resolve();
+    const prev = queue.get(p.id) ?? Promise.resolve();
+    const next = prev.then(() => uploadStage(p, stepId, art)).catch((e) => { p.publishError = e.message; persist(true); draw(); })
+      .finally(() => { if (queue.get(p.id) === next) queue.delete(p.id); draw(); });
+    queue.set(p.id, next);
+    draw();
+    return next;
   }
-  async function autoPublishNow(p, main) {
-    if (p.published && p.published.size === main.content.length) return; // nothing new to put online
-    const devops = p.plan.find((x) => x.agent === "devops")?.agent ?? "devops";
-    deps.team.busy(devops, "menerbitkan halaman…"); say("Devops menerbitkan halaman."); p.publishError = null; render();
-    try { await publish(p, main); say("Halaman sudah terbit."); }
-    catch (e) { p.publishError = e.message; }
-    deps.team.busy(devops, null); persist(true); render();
-  }
-  async function publish(p, main) {
-    const pub = p.published, token = pub?.token ?? randomToken();
-    const r = await callPublish("publish", { id: pub?.id, token, html: main.content });
-    p.published = { id: r.id, token, url: r.url, at: Date.now(), size: main.content.length }; p.takenDown = false; p.publishError = null;
-    deps.setDocUrl?.(main.content, r.url); // the page may be open on the right already
+  async function uploadStage(p, stepId, art) {
+    const f = p.published?.files?.[stepId];
+    if (f && f.sig === sig(art.content)) return; // this version is up there already
+    say("Devops menerbitkan halaman.");
+    const token = p.published?.token ?? randomToken();
+    const r = await callPublish("publish", { id: p.published?.id, token, html: art.content, file: stepId });
+    p.published = { ...(p.published ?? {}), id: r.id, token, url: r.url, at: Date.now(), size: art.content.length, latest: stepId,
+      files: { ...(p.published?.files ?? {}), [stepId]: { url: r.fileUrl ?? r.url, sig: sig(art.content) } } };
+    p.takenDown = false; p.publishError = null;
+    deps.setDocUrl?.(art.content, r.fileUrl ?? r.url); // the page may be open on the right already
     persist(true);
+    say("Halaman sudah terbit.");
   }
+  const publish = (p, main) => { p.takenDown = false; return publishStage(p, main.id ?? p.primary, main); };
   function publishRow(p, main) {
     const row = el("div", "pj-publish");
     const pub = p.published;
@@ -304,12 +316,29 @@ export function createProjectView({ host, deps }) {
       const a = el("a", "pj-link", pub.url); a.href = pub.url; a.target = "_blank"; a.rel = "noopener noreferrer";
       const copy = button("Salin tautan", "copy", "pj-btn", async () => { try { await navigator.clipboard.writeText(pub.url); msg.textContent = "Tautan disalin."; } catch { msg.textContent = pub.url; } });
       const del = button("Turunkan", "trash", "pj-btn", () => run(del, "Menurunkan…", async () => { await callPublish("unpublish", { id: pub.id, token: pub.token }); delete p.published; p.takenDown = true; persist(true); render(); }));
-      row.append(el("span", "pj-hint", "Sudah terbit oleh Devops. Kalau kamu minta revisi, terbitan ini ikut diperbarui di tautan yang sama. Hilang sendiri 30 hari setelah terbitan terakhir."), a);
+      row.append(el("span", "pj-hint", "Diterbitkan oleh Devops: tautan ini selalu menampilkan versi terbaru. Setiap revisi ikut diperbarui. Hilang sendiri 30 hari setelah terbitan terakhir."), a);
+      const stages = Object.entries(pub.files ?? {}).filter(([id]) => p.plan.some((x) => x.id === id));
+      if (stages.length > 1) {
+        const list = el("div", "pj-ctl");
+        for (const [id, f] of stages) { const s = p.plan.find((x) => x.id === id); const l = el("a", "pj-link", `${s.title} (${agentOf(s.agent).name})`); l.href = f.url; l.target = "_blank"; l.rel = "noopener noreferrer"; list.append(l); }
+        row.append(list);
+      }
       const ctl = el("div", "pj-ctl"); ctl.append(copy, del); row.append(ctl);
       if (pub.size !== main.content.length) row.append(again());
     }
     row.append(msg);
     return row;
+  }
+  /** The automatic test run of a finished page (src/pagetest.js): a line that opens into what passed and what did not. Text only, never markup. */
+  function testReport(t) {
+    const box = el("details", "pj-test"); box.dataset.ok = String(!t.problems.length);
+    const sum = el("summary", null, `Uji otomatis: ${t.passed.length} lulus${t.problems.length ? ` · ${t.problems.length} masalah` : ""}`);
+    box.append(sum);
+    const ul = el("ul");
+    for (const x of t.problems) { const li = el("li", "bad"); li.textContent = x; ul.append(li); }
+    for (const x of t.passed) { const li = el("li", "ok"); li.textContent = x; ul.append(li); }
+    box.append(ul);
+    return box;
   }
   function finish(p) {
     const box = el("section", "pj-finish");
@@ -334,7 +363,7 @@ export function createProjectView({ host, deps }) {
     host.scrollTop = keep;
     api.onChange?.(p);
     // a finished project that was never published (the page was closed while Devops was at it): Devops does it now
-    if (p?.status === "done" && !p.published && !p.takenDown && !p.publishError && !running) { const main = primaryArtifact(p); if (main?.kind === "mockup") autoPublish(p, main); }
+    if (p?.status === "done" && !p.published && !p.takenDown && !p.publishError && !running) { const main = primaryArtifact(p); if (main?.kind === "mockup") publishStage(p, main.id, main); }
     deps.route?.(p ? p.id : null); // the address follows the screen: #proyek/<id> for a project, #proyek for the start screen
   }
 

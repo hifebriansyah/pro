@@ -192,9 +192,11 @@ test("a project remembers its headline deliverable: the page for a website, noth
 
 test("the screen puts the result first: it opens by itself when the project is done, has its own download, and says which step is the result", () => {
   assert.match(view, /const main = primaryArtifact\(p\); if \(main && currentId === p\.id\) showArtifact\(main, p\)/);
-  assert.match(view, /deps\.setDocUrl\?\.\(main\.content, r\.url\)/, "a page open on the right gets its new-window button when it is published");
+  assert.match(view, /deps\.setDocUrl\?\.\(art\.content, r\.fileUrl \?\? r\.url\)/, "a page open on the right gets its new-window button when it is published");
+  assert.match(view, /if \(ev\.kind === "mockup"\) publishStage\(p, ev\.id/, "every page version is published as it arrives, the designer's too");
+  assert.match(view, /callPublish\("publish", \{ id: p\.published\?\.id, token, html: art\.content, file: stepId \}\)/, "into the project's one folder, a file per stage");
   assert.match(html, /id="doc-open" target="_blank" rel="noopener noreferrer"/);
-  assert.match(html, /\\\/p\\\/\[a-z0-9\]\{12\}\\\/\$/, "only a published page address gets the button");
+  assert.match(html, /\\\/p\\\/\[a-z0-9\]\{12\}\\\/\(\?:\[a-z0-9\]\[a-z0-9-\]\{0,39\}\\\.html\)\?\$/, "only a published page address (the folder, or one stage in it) gets the button");
   assert.match(view, /"Halamanmu sudah jadi"/);
   assert.match(view, /"Hasil utama"/);
   assert.match(view, /download\(`\$\{slug\(a\.title \|\| p\.title\)\}\.html`, a\.content, "text\/html"\)/);
@@ -207,4 +209,14 @@ test("settle: a run cut off by a refresh is marked to go on by itself; one the v
   settle([cut, stopped]);
   assert.deepEqual([cut.status, cut.resume, stopped.resume], ["paused", true, undefined]);
   assert.match(view, /cut\[0\]\.status === "paused"\) run\(cut\[0\]\)/);
+});
+
+test("a finished page's test run is kept with the project (strings only, capped) and shown under the step as text, never as markup", () => {
+  const p = newProject({ goal: "Landing page toko kopi" });
+  applyEvent(p, { type: "artifact", id: "build", kind: "mockup", title: "Halaman", content: "<html></html>", note: "n", test: { passed: ["the menu button opens the menu", 7], problems: ["clicking a \"Detail\" throws"], steps: 9 } });
+  assert.deepEqual(p.artifacts.build.test, { passed: ["the menu button opens the menu"], problems: ['clicking a "Detail" throws'] });
+  applyEvent(p, { type: "artifact", id: "page", kind: "mockup", title: "Desain", content: "<html></html>", note: "n" });
+  assert.equal(p.artifacts.page.test, undefined, "no test run, no report");
+  assert.match(view, /if \(a\.test\) card\.append\(testReport\(a\.test\)\)/);
+  assert.match(view, /li\.textContent = x/, "the report is text");
 });

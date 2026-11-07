@@ -382,6 +382,12 @@
   .pj-art-text b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pj-art-text span { font-size: 12.5px; color: var(--muted); }
   .pj-art-open { font-size: 13px; font-weight: 600; color: var(--link); flex: none; }
+  .pj-test { font-size: 13px; border-radius: 10px; padding: 7px 12px; background: color-mix(in srgb, #16a34a 10%, var(--panel)); }
+  .pj-test[data-ok="false"] { background: color-mix(in srgb, #dc2626 10%, var(--panel)); }
+  .pj-test summary { cursor: pointer; font-weight: 600; }
+  .pj-test ul { margin: 6px 0 2px; padding-left: 18px; display: grid; gap: 3px; }
+  .pj-test li.bad { color: var(--text); } .pj-test li.bad::marker { content: "✗ "; color: #dc2626; }
+  .pj-test li.ok { color: var(--muted); } .pj-test li.ok::marker { content: "✓ "; color: #16a34a; }
   .pj-handoff { margin: 0; font-size: 13.5px; padding-left: 12px; border-left: 3px solid var(--line); line-height: 1.45; }
   .pj-handoff-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
   .pj-review { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; padding: 9px 12px; border-radius: 10px; white-space: pre-line; }
@@ -927,7 +933,7 @@ function renderDoc() {
 // "open in a new window": only for a page published at its own address (pro-worker.situs.id/p/<id>/, served sandboxed). An unpublished page opened from
 // here would run with this site's address and could read its storage, so it gets no such button.
 function paintDocLink() {
-  const url = docView?.url && /^https:\/\/[^/]+\/p\/[a-z0-9]{12}\/$/.test(docView.url) ? docView.url : null;
+  const url = docView?.url && /^https:\/\/[^/]+\/p\/[a-z0-9]{12}\/(?:[a-z0-9][a-z0-9-]{0,39}\.html)?$/.test(docView.url) ? docView.url : null;
   $("doc-open").classList.toggle("hidden", !url);
   if (url) $("doc-open").href = url; else $("doc-open").removeAttribute("href");
 }
