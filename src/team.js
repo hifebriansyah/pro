@@ -12,12 +12,15 @@ import { extractDocuments, extractMockups, finishReply } from "./agent.js";
 import { PLAYBOOKS, stepById, suggestPlaybook } from "./playbooks.js";
 import { PROVIDERS } from "./quran.js";
 import { ROSTER, byId } from "./roster.js";
-import { assemble, bareCode, lastScript, outlineOf, scriptProblem } from "./pagecode.js";
+import { applyEdits, bareCode, checkPage, keptPage, lastScript, markupWarnings, outlineOf, parseEdits, replaceLastScript } from "./pagecode.js";
 
 export const LIMITS = { goal: 2000, note: 800, artifact: 60_000, feedback: 1500, body: 150_000 };
 export const BUDGET = { maxCalls: 18, maxMs: 270_000, firstStepMs: 40_000 }; // a Vercel Function may run 300 s: stop with room to spare
-const INPUT_CHARS = 12_000;      // all the "uses" of one step together
-const PREVIOUS_CHARS = 9_000;    // the earlier version of the work, when it is being revised
+const INPUT_CHARS = 16_000;      // all the documents a step "uses", together (a page it works on comes in full, on top of this). The free model gives up after
+                                 // about 60 seconds (HTTP 504), so the prompt and above all the answer must stay modest.
+const PREVIOUS_CHARS = 12_000;   // the earlier version of a document, when it is being revised
+const FILE_CHARS = 40_000;       // a whole HTML file: the page an engineer works on, or his previous version of it
+const FIX_ROUNDS = 2;            // a finished page whose code does not work goes back to its author this many times at most
 const MAX_REVISIONS = 1;
 
 /** The JSON body of POST /team, cleaned. Throws a message the page can show. */
@@ -53,24 +56,43 @@ export function buildStepPrompt({ step, goal, results, persona, skill, revision,
   const per = Math.max(1500, Math.floor(INPUT_CHARS / Math.max(1, step.uses.length)));
   const inputs = step.uses.filter((id) => results.has(id)).map((id) => {
     const r = results.get(id), s = stepById(playbook, id), a = r.artifact;
-    const body = !a ? "(tidak ada berkas)" : a.kind === "mockup" ? `HTML page "${a.title}" (${a.content.length} characters). What is in it:\n${outlineOf(a.content)}${/qa|launch/.test(step.id) ? `\nIts JavaScript:\n${cut(lastScript(a.content), per)}` : ""}` : cut(a.content, per);
+    if (a?.kind === "mockup" && step.edits === id) { // the file this step works on, all of it: the designer's page, or in a revision his own previous version of it
+      const file = revision?.previous || a.content;
+      return `=== ${revision?.previous ? "YOUR PREVIOUS VERSION OF THE FILE" : `${s.title}, by ${byId(s.agent).name}`}: THE FILE YOU WORK ON (complete, ${file.length} characters) ===\nWhat is in it:\n${outlineOf(file)}\n\nThe file:\n${cut(file, FILE_CHARS)}`;
+    }
+    const body = !a ? "(tidak ada berkas)" : a.kind === "mockup" ? `HTML page "${a.title}" (${a.content.length} characters). What is in it:\n${outlineOf(a.content)}${step.gate || step.id === "launch" ? `\nIts JavaScript:\n${cut(lastScript(a.content), per)}` : ""}` : cut(a.content, per);
     return `=== ${s.title}, by ${byId(s.agent).name} ===\n${body}`;
   }).join("\n\n");
   const lines = [
     persona,
     "---",
+    "PROJECT MODE: you are not chatting now. Ignore the chat rules above about short replies, asking questions first, one file per message and keeping code out of the reply: here the deliverable IS your reply, complete, in the format below.",
     `You are ${me.name}, ${me.role}, working in a virtual product team (${team}) on a shared project. Your teammates already did their part; do yours so the next person can build on it.`,
     `PROJECT GOAL\n${goal}`,
     `YOUR TASK: ${step.title}\n${step.task}`,
   ];
   if (inputs) lines.push(`WHAT YOU NEED FROM EARLIER STEPS\n${inputs}`);
   if (notes) lines.push(`HANDOFF NOTES SO FAR\n${notes}`);
-  if (revision) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version: fix every point.\n${revision.changes}\n\nYOUR PREVIOUS VERSION\n${cut(revision.previous, PREVIOUS_CHARS)}\n\nWrite the complete improved version (not a list of edits).`);
+  if (revision && step.edits) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version (the file above): fix every point with your changes to that file. Your JavaScript replaces the file's current script, so send all of it.\n${revision.changes}`);
+  else if (revision) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version: fix every point.\n${revision.changes}\n\nYOUR PREVIOUS VERSION\n${cut(revision.previous, step.kind === "mockup" ? FILE_CHARS : PREVIOUS_CHARS)}\n\nWrite the complete improved version (not a list of edits).`);
   if (reviewing) lines.push(`This is the second review: ${byId(reviewing.author).name} revised the work after your feedback. Check whether your points were fixed.`);
-  const tag = step.script ? '<document title="script.js">...only the JavaScript code, no HTML, no <script> tags, no code fence...</document>' : step.kind === "mockup" ? '<mockup title="...">...a complete HTML page...</mockup>' : '<document title="...">...Markdown...</document>';
+  if (step.edits) {
+    lines.push([
+      "HOW TO ANSWER",
+      "Do NOT send the whole file back (it is too long for one answer). Send only your changes; they are applied to the file for you, in this order:",
+      "1. <change><find>an exact piece of the file, copied character for character</find><replace>what it becomes</replace></change> for each change to existing markup or CSS (as many as you need; keep each find short but unique: a tag with its attributes, a CSS rule).",
+      "2. <add-css>...</add-css> with the CSS you add, and <add-html>...</add-html> with markup added at the end of the body (a toast, a back to top button, a dialog), if any.",
+      "3. For a library the goal names: <script src=\"https://cdnjs.cloudflare.com/ajax/libs/...\"></script> on its own line.",
+      "4. <document title=\"script.js\">...the complete JavaScript, only code, no <script> tags, no code fence...</document>: the main part.",
+      "5. <handoff>...</handoff>: one short paragraph (at most 80 words) for the next person: what works, the ids you used or added, what is left.",
+      "Keep the whole answer under about 9,000 characters. Use only ids that are in the file or that you add yourself. Do not use tools. " + (isIndonesian(goal) ? "Tulis semua teks halaman dan catatan dalam Bahasa Indonesia." : "Write all page text in English."),
+    ].join("\n"));
+    return lines.join("\n\n");
+  }
+  const tag = step.kind === "mockup" ? '<mockup title="...">...a complete HTML page...</mockup>' : '<document title="...">...Markdown...</document>';
   lines.push([
     "HOW TO ANSWER",
-    `1. Write the deliverable as ONE ${tag}. It is the main thing: start with it, no preamble, no questions back. Make it thorough and specific: real names, numbers and examples, ${step.script ? "complete working code" : step.kind === "mockup" ? "a complete screen" : "about 600 to 900 words"}.`,
+    `1. Write the deliverable as ONE ${tag}. It is the main thing: start with it, no preamble, no questions back. Make it thorough and specific: real names, numbers and examples, ${step.kind === "mockup" ? "a complete screen" : "about 600 to 900 words"}.`,
     "2. Right after it write <handoff>...</handoff>: one short paragraph (at most 80 words) for the next person. Give the concrete decisions you made (choices, names, numbers) and what they must do or avoid. No generic reminders such as \"make sure to verify\".",
     step.gate ? "3. Then give your decision: <verdict>approved</verdict> or <verdict>changes</verdict> followed by <changes>- one required change per line</changes>. Be a demanding reviewer: approve only if you would let the team start building from this today, and name the exact gap in every change you ask for." : "",
     "Do not use tools. " + (isIndonesian(goal) ? "Tulis semuanya dalam Bahasa Indonesia." : "Write everything in English."),
@@ -127,10 +149,10 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
         let reply = await chatFn(prompt, { signal });
         reply = await finishReply(reply, `${step.title}: ${step.task}`.slice(-1500), chatFn, { signal }, { onToolStart: () => send({ type: "step", phase: "part", ...info }), onTool: () => { summary.calls++; } });
         const parsed = parseStepReply(String(reply.text ?? ""), step);
-        if (step.script && parsed.artifact) {
-          const built = await assembleScript(step, parsed, info, persona, extra);
+        if (step.edits) {
+          const built = await finishFile(step, String(reply.text ?? ""), parsed, info, persona, extra);
           if (built) return built;
-          if (attempt === 2) throw new Error("kode JavaScript tidak bisa dirakit ke halaman");
+          if (attempt === 2) throw new Error("perubahan untuk halaman tidak terbaca");
           continue;
         }
         if (parsed.artifact && step.minChars && parsed.artifact.content.length < step.minChars && !extra.deepened) {
@@ -147,24 +169,49 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     return null;
   };
 
-  /** An engineer's script step: the model writes only the JavaScript; it must compile (asked to fix it twice if not), and then goes into the designer's page. */
-  const assembleScript = async (step, parsed, info, persona, extra) => {
-    const page = results.get(step.script.into)?.artifact;
-    if (!page || page.kind !== "mockup") return null;
-    let js = bareCode(parsed.artifact.content), problem = scriptProblem(js), note = parsed.note;
-    for (let fix = 0; problem && fix < 2 && !signal?.aborted; fix++) {
+  /** A step that finishes another step's page (the engineer on the designer's page). He reads her whole file and answers with his changes (parseEdits),
+   *  which are applied to it; a whole file he sends anyway is taken if it still holds her page. Then the code checks the result, because nobody in the team
+   *  can run it: its scripts must compile and find the elements they look up. What is wrong goes back to him (at most FIX_ROUNDS times, only the script, so it
+   *  is quick); what stays wrong is said in his note, where QA reads it. Returns null when the reply holds nothing usable. */
+  const finishFile = async (step, text, parsed, info, persona, extra) => {
+    const mine = extra.revision?.previous ? results.get(step.id)?.artifact : null; // a revision changes his own previous file
+    const base = mine?.kind === "mockup" ? mine : results.get(step.edits)?.artifact;
+    if (!base || base.kind !== "mockup") return null;
+    const sent = parsed.artifact?.kind === "mockup" ? parsed.artifact.content : null;
+    let html, note = parsed.note;
+    if (sent && keptPage(base.content, sent)) html = sent;
+    else {
+      const edits = parseEdits(text);
+      if (!edits.js && sent) edits.js = lastScript(sent);
+      if (!edits.js && !edits.changes.length && !edits.css && !edits.html) return null;
+      const applied = applyEdits(base.content, edits, { replaceScript: base === mine });
+      html = applied.html;
+      if (applied.missed.length) note = `${applied.missed.length} perubahan tidak dipasang karena teksnya tidak ada di halaman. ${note}`;
+      if (sent) note = `Berkas lengkapnya tidak utuh, jadi kodenya dipasang ke halaman desainer. ${note}`;
+    }
+    if (!note) note = "Kode halaman sudah dipasang.";
+    let problems = checkPage(html);
+    for (let round = 0; problems.length && round < FIX_ROUNDS && !signal?.aborted; round++) {
       try {
         send({ type: "step", phase: "part", ...info });
-        const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra }) +
-          `\n\nYOUR JAVASCRIPT HAS A SYNTAX ERROR ("${problem}"), so the browser runs none of it. Return the complete corrected code in the same format (one <document title="script.js"> with only the code). Check every bracket, quote and parenthesis, and write simpler code where you are unsure.\n\nYOUR CODE\n${cut(js, 16_000)}`;
+        const prompt = [persona, "---", "PROJECT MODE: you are not chatting now; answer with the code only.", `You are ${byId(step.agent).name}, ${byId(step.agent).role}. PROJECT GOAL\n${body.goal}`, `YOUR TASK: ${step.title}\nFix the script of the page you finished.`,
+          `THE PAGE YOU FINISHED, what is in it:\n${outlineOf(html)}`,
+          `ITS SCRIPT DOES NOT WORK YET. An automatic check found:\n${problems.map((p) => "- " + p).join("\n")}`,
+          `Answer with ONLY the corrected, complete JavaScript as <document title="script.js">...code...</document> (no HTML, no <script> tags, no code fence), then <handoff>one sentence</handoff>. Use only ids listed above. Check every bracket, quote and parenthesis; write simpler code where you are unsure.`,
+          `THE CURRENT SCRIPT\n${cut(lastScript(html), 14_000)}`].join("\n\n");
         summary.calls++;
-        const reply = await chatFn(prompt, { signal });
-        const again = parseStepReply(String(reply.text ?? ""), step);
-        if (again.artifact) { js = bareCode(again.artifact.content); problem = scriptProblem(js); note = again.note || note; }
+        let reply = await chatFn(prompt, { signal });
+        reply = await finishReply(reply, "the corrected JavaScript", chatFn, { signal }, { onTool: () => { summary.calls++; } });
+        const js = parseEdits(String(reply.text ?? "")).js;
+        if (!js) continue;
+        const next = replaceLastScript(html, js);
+        const left = checkPage(next);
+        if (left.length <= problems.length) { html = next; problems = left; } // never take a "fix" that breaks more
       } catch { break; }
     }
-    if (problem) note = `Peringatan: skripnya masih punya kesalahan sintaks (${problem}), jadi fitur interaktifnya belum jalan. ${note}`.slice(0, LIMITS.note);
-    return { ...parsed, note, script: js, artifact: { kind: "mockup", title: page.title, content: assemble(page.content, js) } };
+    const left = [...problems, ...markupWarnings(html)];
+    if (left.length) note = `Peringatan dari pemeriksaan otomatis: ${left.join("; ")}. ${note}`;
+    return { ...parsed, note: note.slice(0, LIMITS.note), artifact: { kind: "mockup", title: sent && keptPage(base.content, sent) ? parsed.artifact.title : base.title, content: html } };
   };
 
   /** A draft that is shorter than the step asks for (small free models write briefly): ask once for the complete, richer version; keep the draft if that fails. */
@@ -191,7 +238,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     send({ type: "step", phase: "end", id: step.id, agent: step.agent, name: byId(step.agent).name, status: "done", revision: revision ? 1 : undefined });
   };
 
-  const previousOf = (step) => (step.script ? lastScript(results.get(step.id)?.artifact?.content ?? "") : results.get(step.id)?.artifact?.content ?? "");
+  const previousOf = (step) => results.get(step.id)?.artifact?.content ?? "";
 
   /** A review: the reviewer decides; "changes" sends the author back (once) and the reviewer looks again. */
   const review = async (step, parsed) => {

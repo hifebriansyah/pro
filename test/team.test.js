@@ -25,7 +25,7 @@ function fakeModel({ verdicts = [], fail = () => false, reply } = {}) {
     if (reply) return { text: reply(title, prompt, m.calls) };
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     const verdict = gate ? (verdicts[v++] ?? "approved") : null;
-    const inner = title === "Prototipe berfungsi (kode)" || title === "Halaman jadi dengan JavaScript" ? `<document title="script.js">document.addEventListener("DOMContentLoaded", () => { const el = document.getElementById("x"); if (!el) return; });</document>`
+    const inner = title === "Prototipe berfungsi (kode)" || title === "Halaman jadi dengan JavaScript" ? `<document title="script.js">document.addEventListener("DOMContentLoaded", () => { const h = document.querySelector("h1"); if (!h) return; });</document>`
       : title === "Mockup layar utama" ? `<mockup title="Layar utama"><!doctype html><html><body><h1>${title}</h1></body></html></mockup>` : `<document title="${title}">\n# ${title}\n\nIsi lengkap untuk ${title}. `.padEnd(250, "x") + "\n</document>";
     const tail = gate ? (verdict === "approved" ? "<verdict>approved</verdict>" : "<verdict>changes</verdict><changes>- tambahkan validasi\n- jelaskan error</changes>") : "";
     return { text: `${inner}\n<handoff>Catatan ${title}.</handoff>\n${tail}` };
@@ -142,7 +142,7 @@ test("runTeam: a review that asks for changes sends the author back once, then t
   assert.equal(summary.calls, 9);
   const fix = m.prompts.find((p) => /REVIEW FEEDBACK from Sinta/.test(p));
   assert.match(fix, /tambahkan validasi/);
-  assert.match(fix, /YOUR PREVIOUS VERSION\n\s*document\.addEventListener/);
+  assert.match(fix, /YOUR PREVIOUS VERSION OF THE FILE[\s\S]*<!doctype html>[\s\S]*document\.addEventListener/);
   assert.match(m.prompts.at(-2), /second review/, "the reviewer is told it is the second look");
   assert.equal(events.at(-1).type, "done");
 });
@@ -290,7 +290,8 @@ test("the website playbook: a goal about a page picks it, and its result is the 
   const pb = PLAYBOOKS.website;
   assert.equal(pb.primary, "build", "the result is the engineer's finished page");
   assert.equal(stepById(pb, "build").kind, "mockup");
-  assert.deepEqual(stepById(pb, "build").script, { into: "page" }, "the engineer writes only the script, which goes into the designer's page");
+  assert.equal(stepById(pb, "build").edits, "page", "the engineer finishes the designer's page");
+  assert.throws(() => validatePlaybook({ id: "x", steps: [{ id: "a", agent: "po", kind: "document", uses: [], task: "" }, { id: "b", agent: "engineer", kind: "mockup", uses: ["a"], edits: "a", task: "" }] }), /edits a must be an earlier mockup/);
   assert.equal(stepById(pb, "build").agent, "engineer", "the software engineer writes the JavaScript");
   assert.deepEqual(pb.steps.map((s) => s.id), ["brief", "copy", "design", "page", "build", "qa", "launch"]);
   assert.equal(stepById(pb, "design").agent, "designer", "the UI/UX designer writes the design system first");
