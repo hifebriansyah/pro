@@ -13,6 +13,7 @@
 
 import { MAX_BODY, parseAgentBody, runAgent } from "../src/serve.js";
 import { skillsFromList } from "../src/skills.js";
+import { handlePublish, servePage } from "./publish.js";
 
 // Filled in by tools/deploy_worker.py from skills/*/SKILL.md: [{name, description, triggers, body}]
 const SKILLS = __SKILLS__;
@@ -71,9 +72,18 @@ export default {
       return new Response(JSON.stringify(obj), { status, headers: { ...cors, "Content-Type": "application/json" } });
     };
 
+    // a published page is for anybody (no origin check): it is served sandboxed, see worker/publish.js
+    if (request.method === "GET" && u.pathname.startsWith("/p/")) return (await servePage(u.pathname, env)) || new Response("not found", { status: 404 });
     if (request.method === "OPTIONS") return new Response(null, { status: originOk ? 204 : 403, headers: cors });
     if (!originOk) return reply({ error: "forbidden" }, 403);
     const team = u.pathname === "/team";
+    const publish = u.pathname === "/publish" || u.pathname === "/unpublish";
+    if (publish && request.method === "POST") {
+      if (env.LIMITER_PUBLISH && !(await env.LIMITER_PUBLISH.limit({ key: who.ip || "unknown" })).success) return reply({ error: "terlalu sering, tunggu semenit" }, 429);
+      if (Number(request.headers.get("Content-Length") || 0) > 520_000) return reply({ error: "too large" }, 413);
+      const [out, status] = await handlePublish(u.pathname.slice(1), await request.text().catch(() => ""), env, `${u.protocol}//${u.host}`);
+      return reply(out, status);
+    }
     if ((u.pathname !== "/agent" && !team) || request.method !== "POST") return reply({ error: "not found" }, 404);
 
     // Each question costs islam-gpt.org calls and a search: a few a minute from one IP address, and a ceiling for everybody together.

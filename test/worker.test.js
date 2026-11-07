@@ -183,3 +183,60 @@ test("worker: AXIOM_LOG=0 sends no log lines (and costs no subrequest); otherwis
   await call({ question: "x" });
   assert.ok(on.logs.some((l) => l.kind === "agent"));
 });
+
+// ---- publishing a page: one project = one folder in the R2 bucket ----
+function fakeBucket() {
+  const m = new Map();
+  return { m,
+    head: async (k) => (m.has(k) ? { customMetadata: m.get(k).meta } : null),
+    get: async (k) => (m.has(k) ? { body: m.get(k).body } : null),
+    put: async (k, body, o) => { m.set(k, { body, meta: o.customMetadata }); },
+    delete: async (k) => { m.delete(k); } };
+}
+const pubCall = (path, body, env) => worker.fetch(new Request(`https://w.test${path}`, { method: "POST", headers: { Origin: "https://pro.situs.id", "Content-Type": "application/json" }, body: JSON.stringify(body) }), { ALLOWED_ORIGINS: "https://pro.situs.id", ...env }, { waitUntil() {} });
+const HTML = "<!doctype html><html><body><h1>Halo</h1></body></html>";
+const TOK = "a".repeat(32);
+
+test("publish: the first time makes a folder, a revision with the same token overwrites the same one", async () => {
+  const SITES = fakeBucket();
+  const a = await (await pubCall("/publish", { token: TOK, html: HTML }, { SITES })).json();
+  assert.match(a.id, /^[a-z0-9]{12}$/);
+  assert.equal(a.url, `https://w.test/p/${a.id}/`);
+  const b = await (await pubCall("/publish", { id: a.id, token: TOK, html: HTML + "<!--v2-->" }, { SITES })).json();
+  assert.equal(b.id, a.id);
+  assert.deepEqual([...SITES.m.keys()], [`${a.id}/index.html`]);
+  assert.equal(SITES.m.get(`${a.id}/index.html`).body, HTML + "<!--v2-->");
+});
+
+test("publish: someone else's token cannot overwrite or remove a folder; the token itself is never stored", async () => {
+  const SITES = fakeBucket();
+  const a = await (await pubCall("/publish", { token: TOK, html: HTML }, { SITES })).json();
+  assert.equal((await pubCall("/publish", { id: a.id, token: "b".repeat(32), html: HTML }, { SITES })).status, 403);
+  assert.equal((await pubCall("/unpublish", { id: a.id, token: "b".repeat(32) }, { SITES })).status, 403);
+  assert.ok(!JSON.stringify(SITES.m.get(`${a.id}/index.html`).meta).includes(TOK));
+  assert.equal((await pubCall("/unpublish", { id: a.id, token: TOK }, { SITES })).status, 200);
+  assert.equal(SITES.m.size, 0);
+});
+
+test("publish: refuses empty, too large, bad token, no bucket, wrong origin; is rate limited", async () => {
+  const SITES = fakeBucket();
+  assert.equal((await pubCall("/publish", { token: TOK, html: "" }, { SITES })).status, 400);
+  assert.equal((await pubCall("/publish", { token: TOK, html: "x".repeat(500_001) }, { SITES })).status, 413);
+  assert.equal((await pubCall("/publish", { token: "short", html: HTML }, { SITES })).status, 400);
+  assert.equal((await pubCall("/publish", { token: TOK, html: HTML }, {})).status, 503);
+  assert.equal((await pubCall("/publish", { token: TOK, html: HTML }, { SITES, LIMITER_PUBLISH: { limit: async () => ({ success: false }) } })).status, 429);
+  const bad = await worker.fetch(new Request("https://w.test/publish", { method: "POST", headers: { Origin: "https://evil.test" }, body: "{}" }), { ALLOWED_ORIGINS: "https://pro.situs.id", SITES }, { waitUntil() {} });
+  assert.equal(bad.status, 403);
+});
+
+test("GET /p/<id>/ serves the page to anybody, sandboxed and not indexed; a missing one is 404", async () => {
+  const SITES = fakeBucket();
+  const a = await (await pubCall("/publish", { token: TOK, html: HTML }, { SITES })).json();
+  const res = await worker.fetch(new Request(`https://w.test/p/${a.id}/`), { ALLOWED_ORIGINS: "https://pro.situs.id", SITES }, { waitUntil() {} });
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), HTML);
+  assert.match(res.headers.get("Content-Security-Policy"), /^sandbox allow-scripts/);
+  assert.doesNotMatch(res.headers.get("Content-Security-Policy"), /allow-same-origin/);
+  assert.match(res.headers.get("X-Robots-Tag"), /noindex/);
+  assert.equal((await worker.fetch(new Request("https://w.test/p/zzzzzzzzzzzz/"), { SITES }, { waitUntil() {} })).status, 404);
+});

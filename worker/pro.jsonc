@@ -25,10 +25,14 @@
   // Secret BRAVE_API_KEY (optional, better search): entered in the Cloudflare dashboard (Worker > Settings > Variables and Secrets); deploys keep it.
   // Without it the search is DuckDuckGo, then Wikipedia.
   // A question is 1 to 4 calls to islam-gpt.org plus a search: at most 6 a minute from one IP address, and 60 a minute for everybody together.
+  // Published pages (POST /publish, GET /p/<id>/; worker/publish.js): one folder per project in this R2 bucket, bound as SITES.
+  "r2_buckets": [{ "binding": "SITES", "bucket_name": "pro" }],
   "ratelimits": [
     { "name": "LIMITER", "namespace_id": "3101", "simple": { "limit": 6, "period": 60 } },
     { "name": "LIMITER_ALL", "namespace_id": "3102", "simple": { "limit": 60, "period": 60 } },
     // a team project (POST /team) is a long run of many model calls: at most 3 starts a minute from one IP address
-    { "name": "LIMITER_TEAM", "namespace_id": "3103", "simple": { "limit": 3, "period": 60 } }
+    { "name": "LIMITER_TEAM", "namespace_id": "3103", "simple": { "limit": 3, "period": 60 } },
+    // publishing a page: at most 10 a minute from one IP address
+    { "name": "LIMITER_PUBLISH", "namespace_id": "3104", "simple": { "limit": 10, "period": 60 } }
   ]
 }

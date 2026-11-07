@@ -20,6 +20,8 @@ const ICON = {
   file: svg('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>'),
   layout: svg('<rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/>'),
   sparkles: svg('<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>'),
+  globe: svg('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>'),
+  copy: svg('<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>'),
   alert: svg('<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>'),
 };
 const STATUS = { draft: "Belum dimulai", running: "Berjalan", paused: "Dijeda", failed: "Perlu dicoba lagi", done: "Selesai" };
@@ -248,6 +250,41 @@ export function createProjectView({ host, deps }) {
     li.append(rail, card);
     return li;
   }
+  // "Terbitkan": the page goes to a public link. One project, one folder: publishing again (after a revision) replaces the page at the same link.
+  const randomToken = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  async function callPublish(path, body) {
+    const res = await fetch(`${deps.proxy}/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (!res || !res.ok) throw new Error(data.error || "layanan penerbitan tidak bisa dihubungi, coba lagi");
+    return data;
+  }
+  function publishRow(p, main) {
+    const row = el("div", "pj-publish");
+    const pub = p.published;
+    const msg = el("p", "pj-hint");
+    const busy = (b, on) => { b.disabled = on; };
+    const run = async (b, label, work) => { busy(b, true); msg.textContent = label; try { await work(); } catch (e) { msg.textContent = e.message; } busy(b, false); };
+    const send = async () => {
+      const token = pub?.token ?? randomToken();
+      const r = await callPublish("publish", { id: pub?.id, token, html: main.content });
+      p.published = { id: r.id, token, url: r.url, at: Date.now(), size: main.content.length };
+      persist(true); render();
+    };
+    if (!pub) {
+      const b = button("Terbitkan", "globe", "pj-btn", () => run(b, "Menerbitkan…", send));
+      row.append(b, el("span", "pj-hint", "Dapat tautan publik untuk dibagikan. Hilang sendiri 30 hari setelah terbitan terakhir."));
+    } else {
+      const a = el("a", "pj-link", pub.url); a.href = pub.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      const stale = pub.size !== main.content.length;
+      const upd = button(stale ? "Perbarui terbitan" : "Terbitkan ulang", "retry", "pj-btn", () => run(upd, "Memperbarui…", send));
+      const copy = button("Salin tautan", "copy", "pj-btn", async () => { try { await navigator.clipboard.writeText(pub.url); msg.textContent = "Tautan disalin."; } catch { msg.textContent = pub.url; } });
+      const del = button("Cabut", "trash", "pj-btn", () => run(del, "Mencabut…", async () => { await callPublish("unpublish", { id: pub.id, token: pub.token }); delete p.published; persist(true); render(); }));
+      row.append(a, stale ? el("span", "pj-hint", "Halamannya sudah direvisi: perbarui agar tautan yang sama menampilkan versi terbaru.") : "", el("div", "pj-ctl"));
+      row.lastChild.append(upd, copy, del);
+    }
+    row.append(msg);
+    return row;
+  }
   function finish(p) {
     const box = el("section", "pj-finish");
     const main = primaryArtifact(p);
@@ -256,6 +293,7 @@ export function createProjectView({ host, deps }) {
       const first = el("div", "pj-ctl");
       first.append(button(main.kind === "mockup" ? "Buka halaman" : "Buka dokumen", main.kind === "mockup" ? "layout" : "file", "pj-btn primary", () => showArtifact(main)), button(main.kind === "mockup" ? "Unduh .html" : "Unduh .md", "download", "pj-btn", () => saveArtifact(main, p)));
       box.append(first);
+      if (main.kind === "mockup") box.append(publishRow(p, main));
     } else box.append(el("h3", null, "Proyek selesai"), el("p", null, `${p.plan.length} berkas siap: ${p.plan.map((s) => s.title).join(", ")}.`));
     const row = el("div", "pj-ctl pj-ctl-more");
     row.append(button("Unduh semua (.md)", "download", main ? "pj-btn" : "pj-btn primary", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))), "text/markdown")), button("Proyek baru", "sparkles", "pj-btn", () => api.newProject()));

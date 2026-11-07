@@ -106,6 +106,7 @@ def main():
     mods[cfg["main"]] = mods[cfg["main"]].replace("__SKILLS__", json.dumps(found_skills, ensure_ascii=False), 1)
 
     bindings = [{"type": "ratelimit", "name": r["name"], "namespace_id": r["namespace_id"], "simple": r["simple"]} for r in cfg.get("ratelimits", [])]
+    bindings += [{"type": "r2_bucket", "name": r["binding"], "bucket_name": r["bucket_name"]} for r in cfg.get("r2_buckets", [])]
     bindings += [{"type": "plain_text", "name": k, "text": v} for k, v in cfg.get("vars", {}).items()]
     metadata = {"main_module": cfg["main"], "compatibility_date": cfg["compatibility_date"], "bindings": bindings,
                 "keep_bindings": ["secret_text"]}  # BRAVE_API_KEY stays across deploys
