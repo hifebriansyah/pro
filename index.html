@@ -484,6 +484,7 @@
   <aside class="doc hidden" id="doc" aria-label="Dokumen">
     <header>
       <div class="title"><b id="doc-title"></b><span id="doc-kind">Markdown</span></div>
+      <a class="icon-btn hidden" id="doc-open" target="_blank" rel="noopener noreferrer" title="Buka di jendela baru" aria-label="Buka di jendela baru"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
       <button class="icon-btn" id="doc-copy" title="Salin Markdown" aria-label="Salin Markdown"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
       <button class="icon-btn" id="doc-dl" title="Unduh .md" aria-label="Unduh .md"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></button>
       <button class="icon-btn" id="doc-close" title="Tutup" aria-label="Tutup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -918,10 +919,20 @@ function renderDoc() {
   $("doc-kind").textContent = !mock ? "Markdown" : docView.svg ? "SVG" : "Mockup HTML";
   $("doc-copy").title = !mock ? "Salin Markdown" : docView.svg ? "Salin SVG" : "Salin HTML";
   $("doc-dl").title = !mock ? "Unduh .md" : docView.svg ? "Unduh .svg" : "Unduh .html";
+  paintDocLink();
   if (mock) { paintTools(); renderMock(); return; }
   $("doc-body").replaceChildren(renderMarkdown(docView.markdown));
   $("doc-body").scrollTop = 0;
 }
+// "open in a new window": only for a page published at its own address (pro-worker.situs.id/p/<id>/, served sandboxed). An unpublished page opened from
+// here would run with this site's address and could read its storage, so it gets no such button.
+function paintDocLink() {
+  const url = docView?.url && /^https:\/\/[^/]+\/p\/[a-z0-9]{12}\/$/.test(docView.url) ? docView.url : null;
+  $("doc-open").classList.toggle("hidden", !url);
+  if (url) $("doc-open").href = url; else $("doc-open").removeAttribute("href");
+}
+/** The page that is open on the right was just published: show its button without reloading the preview. */
+const setDocUrl = (html, url) => { if (docView?.kind === "mockup" && docView.html === html) { docView.url = url; paintDocLink(); } };
 const openDoc = (d) => { docView = d; if (d.kind === "mockup") { d.svg ??= isSvg(d.html); mockTab = "preview"; mockWidth = 0; mockBg = "light"; } renderDoc(); };
 const closeDoc = () => { docView = null; $("mock-body").replaceChildren(); renderDoc(); }; // an emptied panel also stops a running preview
 function docCard(d) {
@@ -1311,7 +1322,7 @@ async function openProject(id) {
   try {
     const { createProjectView } = await import("./project/view.js");
     projectView = createProjectView({ host: $("pj-body"), deps: {
-      el, agentOf, paintAvatar, openDoc, closeDoc, openChat: (id) => open(id), proxy: PROXY, getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
+      el, agentOf, paintAvatar, openDoc, closeDoc, setDocUrl, openChat: (id) => open(id), proxy: PROXY, getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
       download: downloadText,
       // the address follows the project screen: a new entry in the history for each project, so the browser's back button works
       route: (id) => { const want = id ? `#proyek/${id}` : "#proyek"; if (projectOn && location.hash !== want) try { history.pushState(null, "", want); } catch {} },

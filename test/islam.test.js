@@ -26,7 +26,7 @@ const live = { skip: process.env.ISLAM_SKIP_LIVE ? "ISLAM_SKIP_LIVE is set" : fa
 
 test("live: POST /api/questions returns a shareId", live, async () => {
   const shareId = await ask("apa itu puasa");
-  assert.match(shareId, /^[A-Za-z0-9]{8,}$/);
+  assert.match(shareId, /^[A-Za-z0-9_-]{8,}$/); // a URL-safe id: letters, digits, - and _
 });
 
 test("live: the stream sends references, chunks, then done", live, async () => {

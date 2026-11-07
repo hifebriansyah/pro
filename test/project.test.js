@@ -191,7 +191,10 @@ test("a project remembers its headline deliverable: the page for a website, noth
 });
 
 test("the screen puts the result first: it opens by itself when the project is done, has its own download, and says which step is the result", () => {
-  assert.match(view, /const main = primaryArtifact\(p\); if \(main && currentId === p\.id\) showArtifact\(main\)/);
+  assert.match(view, /const main = primaryArtifact\(p\); if \(main && currentId === p\.id\) showArtifact\(main, p\)/);
+  assert.match(view, /deps\.setDocUrl\?\.\(main\.content, r\.url\)/, "a page open on the right gets its new-window button when it is published");
+  assert.match(html, /id="doc-open" target="_blank" rel="noopener noreferrer"/);
+  assert.match(html, /\\\/p\\\/\[a-z0-9\]\{12\}\\\/\$/, "only a published page address gets the button");
   assert.match(view, /"Halamanmu sudah jadi"/);
   assert.match(view, /"Hasil utama"/);
   assert.match(view, /download\(`\$\{slug\(a\.title \|\| p\.title\)\}\.html`, a\.content, "text\/html"\)/);

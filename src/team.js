@@ -12,7 +12,7 @@ import { extractDocuments, extractMockups, finishReply } from "./agent.js";
 import { PLAYBOOKS, stepById, suggestPlaybook } from "./playbooks.js";
 import { PROVIDERS } from "./quran.js";
 import { ROSTER, byId } from "./roster.js";
-import { applyEdits, bareCode, checkPage, keptPage, lastScript, markupWarnings, outlineOf, parseEdits, replaceLastScript } from "./pagecode.js";
+import { applyEdits, bareCode, checkPage, ensureThree, keptPage, lastScript, markupWarnings, outlineOf, parseEdits, repairPage, replaceLastScript, sceneContainer, threeStarter, wantsThree } from "./pagecode.js";
 
 export const LIMITS = { goal: 2000, note: 800, artifact: 60_000, feedback: 1500, body: 150_000 };
 export const BUDGET = { maxCalls: 18, maxMs: 270_000, firstStepMs: 40_000 }; // a Vercel Function may run 300 s: stop with room to spare
@@ -53,16 +53,21 @@ const CHAT_ONLY = [/^- This is a chat\b/, /^- If the request is too vague\b/, /^
 export const projectPersona = (persona) => String(persona ?? "").split("\n").filter((line) => !CHAT_ONLY.some((re) => re.test(line.trim()))).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 
 /** Everything one professional is told for one step. skill: the text of the writing-md / mockup-html skill. */
-export function buildStepPrompt({ step, goal, results, persona, skill, revision, reviewing, playbook }) {
+// A page's CSS is often half of its file. The engineer can add CSS (<add-css>) without seeing it, so a shorter prompt (a revision, or a retry after the
+// model timed out) shows the markup and the script but not the old CSS.
+const hideCss = (html) => String(html).replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/gi, (m, a, css, b) => (css.length > 400 ? `${a}/* ${css.length} karakter CSS lama tidak ditampilkan; tambahkan CSS baru lewat <add-css> */${b}` : m));
+
+export function buildStepPrompt({ step, goal, results, persona, skill, revision, reviewing, playbook, compact = false }) {
   const me = byId(step.agent);
   const team = ROSTER.map((p) => `${p.name} (${p.role})`).join(", ");
   const earlier = playbook.steps.filter((s) => results.has(s.id) && s.id !== step.id);
   const notes = earlier.map((s) => `- ${byId(s.agent).name} (${s.title}): ${results.get(s.id).note || "(tanpa catatan)"}`).join("\n");
-  const per = Math.max(1500, Math.floor(INPUT_CHARS / Math.max(1, step.uses.length)));
+  const per = Math.max(1500, Math.floor((compact ? INPUT_CHARS / 2 : INPUT_CHARS) / Math.max(1, step.uses.length)));
+  if (compact) skill = ""; // the retry after a timeout: the format is still stated below, the long skill text is left out
   const inputs = step.uses.filter((id) => results.has(id)).map((id) => {
     const r = results.get(id), s = stepById(playbook, id), a = r.artifact;
     if (a?.kind === "mockup" && step.edits === id) { // the file this step works on, all of it: the designer's page, or in a revision his own previous version of it
-      const file = revision?.previous || a.content;
+      const file = (revision?.previous || compact) ? hideCss(revision?.previous || a.content) : a.content;
       return `=== ${revision?.previous ? "YOUR PREVIOUS VERSION OF THE FILE" : `${s.title}, by ${byId(s.agent).name}`}: THE FILE YOU WORK ON (complete, ${file.length} characters) ===\nWhat is in it:\n${outlineOf(file)}\n\nThe file:\n${cut(file, FILE_CHARS)}`;
     }
     const body = !a ? "(tidak ada berkas)" : a.kind === "mockup" ? `HTML page "${a.title}" (${a.content.length} characters). What is in it:\n${outlineOf(a.content)}${step.gate || step.id === "launch" ? `\nIts JavaScript:\n${cut(lastScript(a.content), per)}` : ""}` : cut(a.content, per);
@@ -78,6 +83,10 @@ export function buildStepPrompt({ step, goal, results, persona, skill, revision,
   ];
   if (inputs) lines.push(`WHAT YOU NEED FROM EARLIER STEPS\n${inputs}`);
   if (notes) lines.push(`HANDOFF NOTES SO FAR\n${notes}`);
+  if (step.edits && wantsThree(goal) && !revision) {
+    const page = results.get(step.edits)?.artifact?.content ?? "";
+    lines.push(`STARTER CODE FOR THE 3D PART (it works as it is: three.js r128 from ${"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"}, which you load with a <script src> line). Adapt it to this page: the object, colours and motion that fit the goal${sceneContainer(page) ? `; it already renders into #${sceneContainer(page)}, the container the designer left` : "; give it a container in the hero with <change> or <add-html>"}. Keep it working.\n${threeStarter(sceneContainer(page))}`);
+  }
   if (revision && step.edits) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version (the file above): fix every point with your changes to that file. Your JavaScript replaces the file's current script, so send all of it.\n${revision.changes}`);
   else if (revision) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version: fix every point.\n${revision.changes}\n\nYOUR PREVIOUS VERSION\n${cut(revision.previous, step.kind === "mockup" ? FILE_CHARS : PREVIOUS_CHARS)}\n\nWrite the complete improved version (not a list of edits).`);
   if (reviewing) lines.push(`This is the second review: ${byId(reviewing.author).name} revised the work after your feedback. Check whether your points were fixed.`);
@@ -97,7 +106,7 @@ export function buildStepPrompt({ step, goal, results, persona, skill, revision,
   const tag = step.kind === "mockup" ? '<mockup title="...">...a complete HTML page...</mockup>' : '<document title="...">...Markdown...</document>';
   lines.push([
     "HOW TO ANSWER",
-    `1. Write the deliverable as ONE ${tag}. It is the main thing: start with it, no preamble, no questions back. Make it thorough and specific: real names, numbers and examples, ${step.kind === "mockup" ? "a complete screen" : "about 600 to 900 words"}.`,
+    `1. Write the deliverable as ONE ${tag}. It is the main thing: start with it, no preamble, no questions back. Make it thorough and specific: real names, numbers and examples, ${step.kind === "mockup" ? "a complete screen" : "about 600 to 900 words"}.${step.maxChars ? ` The whole file must stay under about ${step.maxChars.toLocaleString("en")} characters: you have about one minute to write it.` : ""}`,
     "2. Right after it write <handoff>...</handoff>: one short paragraph (at most 80 words) for the next person. Give the concrete decisions you made (choices, names, numbers) and what they must do or avoid. No generic reminders such as \"make sure to verify\".",
     step.gate ? "3. Then give your decision: <verdict>approved</verdict> or <verdict>changes</verdict> followed by <changes>- one required change per line</changes>. Be a demanding reviewer: approve only if you would let the team start building from this today, and name the exact gap in every change you ask for." : "",
     "Do not use tools. " + (isIndonesian(goal) ? "Tulis semuanya dalam Bahasa Indonesia." : "Write everything in English."),
@@ -136,7 +145,9 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
   const summary = { playbook: playbook.id, steps: 0, calls: 0, revisions: 0, artifacts: 0, paused: null, failed: null };
   const t0 = now();
   const stepTimes = [];
-  const skillText = (kind) => skills.get(kind === "mockup" ? "mockup-html" : "writing-md")?.body ?? "";
+  // the skills are written for the chat, where an answer may run as long as it needs (it is continued when cut off). A project step has to finish inside
+  // one model call, so the "no size limit, aim for 8,000+ characters" rule is taken out, and the step's own size is stated instead.
+  const skillText = (kind) => String(skills.get(kind === "mockup" ? "mockup-html" : "writing-md")?.body ?? "").split("\n").filter((l) => !/^- \*\*No size limit/.test(l.trim())).join("\n");
 
   send({ type: "plan", playbook: playbook.id, title: playbook.title, primary: playbook.primary ?? null, steps: playbook.steps.map((s) => ({ id: s.id, agent: s.agent, name: byId(s.agent).name, role: byId(s.agent).role, title: s.title, kind: s.kind, gate: !!s.gate, status: results.has(s.id) && s.id !== body.only ? "done" : "pending" })) });
 
@@ -145,11 +156,12 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     const me = byId(step.agent), persona = personas?.get(step.agent);
     const info = { id: step.id, agent: step.agent, name: me.name, revision: extra.revision ? 1 : undefined };
     if (!persona) { send({ type: "step", phase: "end", ...info, status: "failed", error: `${me.name} tidak tersedia` }); return null; }
+    let compact = false;
     for (let attempt = 1; attempt <= 2; attempt++) {
       if (signal?.aborted) return null;
       send({ type: "step", phase: "start", ...info, attempt });
       try {
-        const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra });
+        const prompt = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra, compact });
         summary.calls++;
         let reply = await chatFn(prompt, { signal });
         reply = await finishReply(reply, `${step.title}: ${step.task}`.slice(-1500), chatFn, { signal }, { onToolStart: () => send({ type: "step", phase: "part", ...info }), onTool: () => { summary.calls++; } });
@@ -164,10 +176,12 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
           const fuller = await deepen(step, parsed, info, persona);
           if (fuller) return fuller;
         }
+        if (parsed.artifact?.kind === "mockup") { const r = repairPage(parsed.artifact.content); parsed.artifact.content = r.html; }
         if (parsed.artifact) return parsed;
         if (attempt === 2) throw new Error("jawaban kosong atau formatnya tidak terbaca");
       } catch (e) {
         if (signal?.aborted) return null;
+        if (/HTTP 50[234]|time ?out|timed out|aborted/i.test(String(e?.message ?? e))) compact = true; // the model gave up on a long prompt: the second try is shorter
         if (attempt === 2) { send({ type: "step", phase: "end", ...info, status: "failed", error: String(e.message ?? e).slice(0, 200) }); return null; }
       }
     }
@@ -214,7 +228,13 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
         if (left.length <= problems.length) { html = next; problems = left; } // never take a "fix" that breaks more
       } catch { break; }
     }
+    // what has one safe answer, the code fixes itself: icon sizes, dead pictures, the same id twice, and the 3D scene the goal asked for
+    const repaired = repairPage(html), three = ensureThree(repaired.html, body.goal);
+    html = three.html;
+    const done = [...repaired.fixed, ...three.fixed];
+    problems = checkPage(html);
     const left = [...problems, ...markupWarnings(html)];
+    if (done.length) note = `Diperbaiki otomatis: ${done.join("; ")}. ${note}`;
     if (left.length) note = `Peringatan dari pemeriksaan otomatis: ${left.join("; ")}. ${note}`;
     return { ...parsed, note: note.slice(0, LIMITS.note), artifact: { kind: "mockup", title: sent && keptPage(base.content, sent) ? parsed.artifact.title : base.title, content: html } };
   };

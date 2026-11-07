@@ -86,7 +86,7 @@ export function createProjectView({ host, deps }) {
     else if (ev.type === "step" && ev.phase === "end" && s) { deps.team.busy(s.agent, `mengerjakan proyek "${p.title}"`); if (ev.status === "failed") say(`${s.title} gagal.`); }
     else if (ev.type === "artifact" && s) say(`${s.title} selesai.`);
     else if (ev.type === "handoff") deps.team.visit(ev.from, ev.to);
-    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main); autoPublish(p, main); } // the result itself opens by itself
+    else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main, p); autoPublish(p, main); } // the result itself opens by itself
     else if (ev.type === "paused") say(ev.reason === "failed" ? "Proyek berhenti karena satu langkah gagal." : "Proyek dijeda.");
   }
   async function readEvents(res, onEvent) {
@@ -101,7 +101,9 @@ export function createProjectView({ host, deps }) {
       for (const b of blocks) { const line = b.split("\n").find((l) => l.startsWith("data:")); if (!line) continue; try { onEvent(JSON.parse(line.slice(5).trim())); } catch { /* a line that is not an event */ } }
     }
   }
-  const showArtifact = (a) => deps.openDoc(a.kind === "mockup" ? { kind: "mockup", title: a.title, html: a.content } : { kind: "doc", title: a.title, markdown: a.content });
+  // the project's result, once Devops has published it, carries its public address (the viewer offers "open in a new window")
+  const urlOf = (a, p) => (p && a.id && a.id === p.primary && p.published?.size === a.content.length ? p.published.url : null);
+  const showArtifact = (a, p) => deps.openDoc(a.kind === "mockup" ? { kind: "mockup", title: a.title, html: a.content, url: urlOf(a, p) } : { kind: "doc", title: a.title, markdown: a.content });
   const saveArtifact = (a, p) => (a.kind === "mockup" ? deps.download(`${slug(a.title || p.title)}.html`, a.content, "text/html") : deps.download(`${slug(a.title || p.title)}.md`, a.content, "text/markdown"));
   const stop = () => { if (running) { running.stopped = true; running.ac.abort(); } };
 
@@ -225,7 +227,7 @@ export function createProjectView({ host, deps }) {
       open.append(icon(a.kind === "mockup" ? "layout" : "file"));
       const t = el("span", "pj-art-text"); t.append(el("b", null, a.title), el("span", null, `${a.kind === "mockup" ? "Mockup" : "Dokumen"} · ${SIZE(a.content.length)}${a.revision ? " · revisi 1" : ""}`));
       open.append(t, el("span", "pj-art-open", "Buka"));
-      open.onclick = () => showArtifact(a);
+      open.onclick = () => showArtifact({ id: s.id, ...a }, p);
       card.append(open);
       if (a.note) { const n = el("p", "pj-handoff"); n.append(el("span", "pj-handoff-label", "Catatan serah-terima"), document.createTextNode(a.note)); card.append(n); }
     }
@@ -285,6 +287,7 @@ export function createProjectView({ host, deps }) {
     const pub = p.published, token = pub?.token ?? randomToken();
     const r = await callPublish("publish", { id: pub?.id, token, html: main.content });
     p.published = { id: r.id, token, url: r.url, at: Date.now(), size: main.content.length }; p.takenDown = false; p.publishError = null;
+    deps.setDocUrl?.(main.content, r.url); // the page may be open on the right already
     persist(true);
   }
   function publishRow(p, main) {
@@ -314,7 +317,7 @@ export function createProjectView({ host, deps }) {
     if (main) {
       box.append(el("h3", null, main.kind === "mockup" ? "Halamanmu sudah jadi" : "Hasil utama sudah jadi"), el("p", null, `${main.title}. Buka untuk melihat hasilnya, atau unduh berkasnya. Berkas pendukung (brief, naskah, penilaian, peluncuran) ada di langkah-langkah di atas.`));
       const first = el("div", "pj-ctl");
-      first.append(button(main.kind === "mockup" ? "Buka halaman" : "Buka dokumen", main.kind === "mockup" ? "layout" : "file", "pj-btn primary", () => showArtifact(main)), button(main.kind === "mockup" ? "Unduh .html" : "Unduh .md", "download", "pj-btn", () => saveArtifact(main, p)));
+      first.append(button(main.kind === "mockup" ? "Buka halaman" : "Buka dokumen", main.kind === "mockup" ? "layout" : "file", "pj-btn primary", () => showArtifact(main, p)), button(main.kind === "mockup" ? "Unduh .html" : "Unduh .md", "download", "pj-btn", () => saveArtifact(main, p)));
       box.append(first);
       if (main.kind === "mockup") box.append(publishRow(p, main));
     } else box.append(el("h3", null, "Proyek selesai"), el("p", null, `${p.plan.length} berkas siap: ${p.plan.map((s) => s.title).join(", ")}.`));

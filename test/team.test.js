@@ -307,41 +307,40 @@ test("the website playbook: a goal about a page picks it, and its result is the 
 });
 
 test("runTeam: a draft that is too short is asked for once more, complete; the longer one is kept; a failing second try keeps the draft", async () => {
+  // the design system has a minimum (minChars); the page has a maximum instead (maxChars), because the free model must finish it inside a minute
   const web = (o = {}) => body({ goal: "Buatkan landing page untuk jasa pembuatan website", playbook: "website", ...o });
-  const page = (n) => `<mockup title="Halaman"><!doctype html><html><body>${"<section>isi</section>".repeat(n)}</body></html></mockup><handoff>Bagian: hero, harga, kontak.</handoff>`;
+  const doc = (n) => `<document title="Design system">\n# Design system\n\n${"token ".repeat(n)}\n</document><handoff>Palet dan tipografi.</handoff>`;
   const run = async (secondTry) => {
     const prompts = [];
     const chatFn = async (prompt) => {
       prompts.push(prompt);
       const title = titleOf(prompt);
       if (title === "Halaman jadi dengan JavaScript") return { text: `<document title="script.js">document.addEventListener("DOMContentLoaded", () => {});</document><handoff>Catatan skrip.</handoff>` };
-      if (title === "Halaman landing page") { const second = /TOO SHORT AND TOO SIMPLE/.test(prompt); return second ? secondTry() : { text: page(20) }; }
+      if (title === "Halaman landing page") return { text: `<mockup title="Halaman"><!doctype html><html><body>${"<section>isi</section>".repeat(300)}</body></html></mockup><handoff>n.</handoff>` };
+      if (title === "Design system") { const second = /TOO SHORT AND TOO SIMPLE/.test(prompt); return second ? secondTry() : { text: doc(50) }; }
       const gate = /<verdict>approved<\/verdict> or/.test(prompt);
-      return { text: `<document title="${title}">\n# ${title}\n\nisi dokumen ${"x".repeat(title === "Design system" ? 2600 : 200)}\n</document><handoff>Catatan ${title}.</handoff>${gate ? "<verdict>approved</verdict>" : ""}` };
+      return { text: `<document title="${title}">\n# ${title}\n\nisi dokumen ${"x".repeat(200)}\n</document><handoff>Catatan ${title}.</handoff>${gate ? "<verdict>approved</verdict>" : ""}` };
     };
     const { events, summary } = await collect(web(), { chatFn });
-    return { events, summary, prompts, page: events.find((e) => e.type === "artifact" && e.id === "page") };
+    return { events, summary, prompts, design: events.find((e) => e.type === "artifact" && e.id === "design") };
   };
-  let r = await run(() => ({ text: page(600) }));
+  let r = await run(() => ({ text: doc(600) }));
   assert.equal(r.events[0].primary, "build", "the plan names the headline step");
-  assert.ok(r.page.content.length > 7000, "the richer version replaced the draft");
+  assert.ok(r.design.content.length > 2500, "the richer version replaced the draft");
   assert.equal(r.prompts.filter((p) => /TOO SHORT AND TOO SIMPLE/.test(p)).length, 1, "asked once, not in a loop");
-  assert.match(r.prompts.find((p) => /TOO SHORT AND TOO SIMPLE/.test(p)), /YOUR DRAFT\n<!doctype html>/);
-  assert.equal(r.summary.calls, 8, "seven steps and one more call for the page");
+  assert.match(r.prompts.find((p) => /TOO SHORT AND TOO SIMPLE/.test(p)), /YOUR DRAFT\n# Design system/);
+  assert.equal(r.summary.calls, 8, "seven steps and one more call for the design system");
   assert.equal(r.events.at(-1).type, "done");
+  assert.match(r.prompts.find((p) => /YOUR TASK: Halaman landing page/.test(p)), /must stay under about 8,000 characters/, "the page is told its size limit");
+  assert.equal(r.prompts.filter((p) => /YOUR TASK: Halaman landing page/.test(p)).length, 1, "a page is never sent back for being short");
   r = await run(() => { throw new Error("model down"); });
-  assert.ok(r.page.content.length < 7000 && r.page.content.length > 100, "the draft is kept when the second try fails");
+  assert.ok(r.design.content.length < 2500 && r.design.content.length > 100, "the draft is kept when the second try fails");
   assert.equal(r.events.at(-1).type, "done");
-  r = await run(() => ({ text: page(3) }));
-  assert.ok(r.page.content.length > 400, "an answer that is not longer is not taken");
-  assert.equal(r.page.content, (await run(() => ({ text: page(3) }))).page.content);
-  const long = fakeModel({ reply: (title) => (title === "Halaman jadi dengan JavaScript" ? `<document title="script.js">const a = 1;</document><handoff>n.</handoff>` : title === "Halaman landing page" ? page(600) : `<document title="${title}">${"x".repeat(title === "Design system" ? 2600 : 300)}</document><handoff>n.</handoff><verdict>approved</verdict>`) });
-  const again = await collect(web(), { chatFn: long.chat });
-  assert.equal(long.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "a page that is long enough is left alone");
+  r = await run(() => ({ text: doc(20) }));
+  assert.ok(r.design.content.length > 200, "an answer that is not longer is not taken");
   const software = fakeModel();
   await collect(body({ goal: "Kampanye Instagram untuk toko kopi", playbook: "campaign" }), { chatFn: software.chat });
   assert.equal(software.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "playbooks without a minimum are untouched");
-  void again;
 });
 
 test("a project step never carries the persona's chat rules (short replies, questions first, one file per message), but keeps who they are and how they work", () => {
