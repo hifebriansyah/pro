@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html CNAME .nojekyll manifest.webmanifest logo.svg favicon.ico og-image.png _site/
-          cp -r personas icons office project _site/
+          cp -r personas icons office project account _site/
           mkdir _site/src
           cp src/playbooks.js src/roster.js _site/src/
       - name: Version the icon addresses (cache busting)

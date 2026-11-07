@@ -29,7 +29,7 @@ test("the office modules only import each other, and the deploy publishes the fo
   for (const f of ["core.js", "scene.js", "office.js"]) {
     for (const m of office(f).matchAll(/^import .* from "([^"]+)"/gm)) assert.match(m[1], /^\.\//, `${f} imports ${m[1]}: only relative files`);
   }
-  assert.match(workflow, /cp -r personas icons office project _site\//);
+  assert.match(workflow, /cp -r personas icons office project account _site\//);
 });
 
 test("the modules load (no DOM, no THREE needed at load time) and export what the page uses", async () => {

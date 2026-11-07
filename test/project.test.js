@@ -160,7 +160,7 @@ test("the page: the project screen is loaded when first opened, the office hears
   assert.match(html, /#proyek\(\?:\\\/\(\[\\w-\]\+\)\)\?\$/, "the address #proyek/<id> opens one project");
   assert.match(html, /team: \{\s*busy: \(id, text\)[\s\S]*visit: \(from, to\)/);
   assert.match(html, /const teamBusy = new Map\(\)/);
-  assert.match(workflow, /cp -r personas icons office project _site\//);
+  assert.match(workflow, /cp -r personas icons office project account _site\//);
   assert.match(workflow, /mkdir _site\/src[\s\S]*cp src\/playbooks\.js src\/roster\.js _site\/src\//, "the playbooks the screen shows are published with it");
 });
 
