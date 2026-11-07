@@ -32,7 +32,8 @@ export const PLAYBOOKS = {
   software: {
     id: "software",
     title: "Fitur software baru",
-    about: "Dari ide sampai rencana siap dikerjakan: PRD, user story, desain, rencana teknis, tes, dan ringkasan pengiriman.",
+    about: "Dari ide sampai prototipe yang jalan: PRD, user story, desain, rencana teknis, kode prototipe (HTML, CSS, JavaScript) yang bisa dicoba, tes, dan ringkasan pengiriman.",
+    primary: "build",
     steps: [
       { id: "prd", agent: "po", title: "PRD", kind: "document", uses: [],
         task: "Write a concise Product Requirements Document for the project goal: the problem and who has it, the goal and how success is measured, the scope (in and out), the main user flows, and the open questions. Be concrete; no placeholders." },
@@ -42,8 +43,10 @@ export const PLAYBOOKS = {
         task: "Design the main screen of this product as one working HTML mockup, following the user stories: believable content, the key states (empty, error), mobile first. In your handoff note, describe the layout and the components the engineer must build." },
       { id: "tech", agent: "engineer", title: "Rencana teknis dan kerangka kode", kind: "document", uses: ["stories", "design"],
         task: "Write the technical plan: architecture and stack choice with reasons, the data model, the API endpoints (method, path, request, response), how the screens in the design map to components, and a code skeleton for the core piece (complete enough to read and adapt, with error handling). Name the risks." },
-      { id: "qa", agent: "qa", title: "Rencana tes dan review", kind: "document", uses: ["stories", "tech"], gate: { of: "tech" },
-        task: "Review the technical plan against the user stories. First check each must-have story: does the plan cover it, with error handling, security and the data it needs? Then write the test plan (what to test at unit, integration and end-to-end level, with concrete cases for the acceptance criteria and the edge cases). Decide whether the plan is good enough to build from: approved only if every must-have story is covered; otherwise list exactly which stories or points are missing." },
+      { id: "build", agent: "engineer", title: "Prototipe berfungsi (kode)", kind: "mockup", uses: ["stories", "design", "tech"], minChars: 8000,
+        task: "Write the working prototype of the feature as ONE complete HTML file with real code: take the designer's mockup (keep its markup and CSS) and implement the user stories in JavaScript, following your technical plan: the data model as plain objects, the core logic as small named functions with comments, state saved in localStorage, input validation with clear messages, the empty, loading and error states, and keyboard and screen reader support. The code must run as it is when the file is opened: no libraries, no build step, no network (a clearly named function stands in for each API call from your plan), and no function may throw when data is missing. In your handoff note list which user stories work and what is still stubbed." },
+      { id: "qa", agent: "qa", title: "Rencana tes dan review", kind: "document", uses: ["stories", "tech", "build"], gate: { of: "build" },
+        task: "Review the technical plan and the prototype code against the user stories. First check each must-have story: does the plan cover it, with error handling, security and the data it needs? Then write the test plan (what to test at unit, integration and end-to-end level, with concrete cases for the acceptance criteria and the edge cases). Read the code: does each must-have story work, are inputs validated, can any function throw, is state saved. Approved only if every must-have story works in the prototype; otherwise list exactly which stories or points are missing." },
       { id: "summary", agent: "delivery", title: "Ringkasan pengiriman", kind: "document", uses: ["prd", "stories", "tech", "qa"],
         task: "Write the delivery summary for the stakeholders: what will be built, a phased timeline with milestones, the team and who does what, the main risks and how they are handled, and the next three actions. Short and decisive." },
     ],

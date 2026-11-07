@@ -18,7 +18,7 @@ async function recorded({ goal = "Buat aplikasi absensi karyawan untuk pabrik", 
     const title = /YOUR TASK: (.+)/.exec(prompt)?.[1] ?? "?";
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     const verdict = gate ? (verdicts[v++] ?? "approved") : null;
-    const inner = /Mockup|Halaman landing page|Halaman jadi/.test(title) ? `<mockup title="Layar"><html><body>${title}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\n${"isi ".repeat(60)}\n</document>`;
+    const inner = /Mockup|Halaman landing page|Halaman jadi|Prototipe/.test(title) ? `<mockup title="Layar"><html><body>${title}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\n${"isi ".repeat(60)}\n</document>`;
     return { text: `${inner}<handoff>Catatan ${title}.</handoff>${gate ? (verdict === "approved" ? "<verdict>approved</verdict>" : "<verdict>changes</verdict><changes>- perbaiki a\n- perbaiki b</changes>") : ""}` };
   };
   const events = [];
@@ -42,7 +42,7 @@ test("applyEvent: a whole run turns a draft into a finished project, step by ste
   const seen = [];
   for (const ev of await recorded()) { applyEvent(p, ev, 5000); seen.push(p.status); }
   assert.equal(p.status, "done");
-  assert.deepEqual(progress(p), { done: 6, total: 6 });
+  assert.deepEqual(progress(p), { done: 7, total: 7 });
   assert.equal(nextAction(p), "none");
   assert.ok(p.plan.every((s) => s.name && s.role), "the plan carries the people's names");
   assert.ok(Object.values(p.steps).every((s) => s.status === "done" && s.attempt >= 1));
@@ -51,14 +51,14 @@ test("applyEvent: a whole run turns a draft into a finished project, step by ste
   assert.equal(p.artifacts.prd.note, "Catatan PRD.");
   assert.deepEqual([p.reviews.qa.verdict, p.reviews.qa.final], ["approved", true]);
   assert.equal(p.feed.filter((f) => f.type === "handoff").length, 5);
-  assert.equal(p.summary.finished, 6);
+  assert.equal(p.summary.finished, 7);
   assert.ok(seen.includes("running"));
 });
 
 test("applyEvent: a review that asks for changes shows the revision; a paused or failed run says what can be done", async () => {
   const p = newProject({ goal: "Buat aplikasi absensi karyawan untuk pabrik" });
   for (const ev of await recorded({ verdicts: ["changes", "approved"] })) applyEvent(p, ev);
-  assert.equal(p.artifacts.tech.revision, 1, "the engineer's second version");
+  assert.equal(p.artifacts.build.revision, 1, "the engineer's second version");
   assert.equal(p.status, "done");
   assert.ok(p.feed.some((f) => f.type === "handoff" && /Perlu perbaikan: - perbaiki a/.test(f.text.replace(/\s+/g, " ")) || /perbaiki a/.test(f.text)));
   const q = newProject({ goal: "x goal here" });
@@ -91,10 +91,10 @@ test("runBody: resuming sends the goal and only the finished work; a redo names 
   assert.deepEqual([runBody(p, { only: "prd", feedback: "ubah" }).only, runBody(p, { only: "prd", feedback: "ubah" }).feedback], ["prd", "ubah"]);
   // and the server takes it: the resumed run does the rest
   const rest = await recorded({ done: b.done });
-  assert.deepEqual(rest.filter((e) => e.type === "artifact").map((e) => e.id), ["design", "tech", "qa", "summary"]);
+  assert.deepEqual(rest.filter((e) => e.type === "artifact").map((e) => e.id), ["design", "tech", "build", "qa", "summary"]);
   for (const ev of rest) applyEvent(p, ev);
   assert.equal(p.status, "done");
-  assert.deepEqual(progress(p), { done: 6, total: 6 });
+  assert.deepEqual(progress(p), { done: 7, total: 7 });
 });
 
 test("settle: a project that was running when the page closed can be continued, with nothing stuck on 'running'", () => {
@@ -184,8 +184,8 @@ test("a project remembers its headline deliverable: the page for a website, noth
   const main = primaryArtifact(w);
   assert.deepEqual([main.id, main.kind], ["build", "mockup"]);
   assert.match(main.content, /^<html/i);
-  assert.equal(newProject({ goal: "Aplikasi absensi karyawan" }).primary, null);
-  assert.equal(primaryArtifact(newProject({ goal: "Aplikasi absensi karyawan" })), null);
+  assert.equal(newProject({ goal: "Kampanye Instagram untuk toko kopi" }).primary, null);
+  assert.equal(primaryArtifact(newProject({ goal: "Kampanye Instagram untuk toko kopi" })), null);
   const md = bundleMarkdown(w);
   assert.match(md, /```html/);
 });

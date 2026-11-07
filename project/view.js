@@ -52,6 +52,7 @@ export function createProjectView({ host, deps }) {
     const ac = new AbortController();
     running = { id: p.id, ac, stopped: false };
     p.status = "running"; p.pause = null; p.error = null; ui.error = "";
+    engage(p); // everybody in this project is at work in the office until it is done
     persist(true); render();
     try {
       const res = await fetch(`${deps.proxy}/team`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(runBody(p, opts)), signal: ac.signal });
@@ -65,7 +66,8 @@ export function createProjectView({ host, deps }) {
       else { p.error = e.fatal ? e.message : "Tidak bisa menghubungi server. Proyek bisa dilanjutkan."; p.status = p.status === "running" ? "paused" : p.status; p.pause ??= { reason: "error", next: null }; }
     } finally {
       const stopped = running?.stopped;
-      for (const s of p.plan) deps.team.busy(s.agent, null);
+      const again = !stopped && ["time", "calls"].includes(p.pause?.reason) && auto < 5; // a run that goes on by itself keeps the team at their desks
+      if (!again) release(p);
       for (const st of Object.values(p.steps)) if (st.status === "running") st.status = "pending";
       running = null;
       if (p.status === "running") p.status = "paused";
@@ -74,11 +76,14 @@ export function createProjectView({ host, deps }) {
       if (!stopped && p.status === "paused" && ["time", "calls"].includes(p.pause?.reason) && auto < 5 && currentId !== "__gone") setTimeout(() => { if (!running && p.status === "paused") run(p, {}, auto + 1); }, 2000);
     }
   }
+  const people = (p) => [...new Set(p.plan.map((s) => s.agent))];
+  const engage = (p) => { for (const a of people(p)) deps.team.busy(a, `mengerjakan proyek "${p.title}"`); };
+  const release = (p) => { for (const a of people(p)) deps.team.busy(a, null); };
   /** What a run's events do outside this screen: the office (who is working, who hands over to whom) and the screen reader. */
   function effects(p, ev) {
     const s = ev.id ? p.plan.find((x) => x.id === ev.id) : null;
     if (ev.type === "step" && ev.phase === "start" && s) { deps.team.busy(s.agent, `menulis ${s.title}…`); say(`${agentOf(s.agent).name} mulai menulis ${s.title}.`); }
-    else if (ev.type === "step" && ev.phase === "end" && s) { deps.team.busy(s.agent, null); if (ev.status === "failed") say(`${s.title} gagal.`); }
+    else if (ev.type === "step" && ev.phase === "end" && s) { deps.team.busy(s.agent, `mengerjakan proyek "${p.title}"`); if (ev.status === "failed") say(`${s.title} gagal.`); }
     else if (ev.type === "artifact" && s) say(`${s.title} selesai.`);
     else if (ev.type === "handoff") deps.team.visit(ev.from, ev.to);
     else if (ev.type === "done") { say("Proyek selesai."); const main = primaryArtifact(p); if (main && currentId === p.id) showArtifact(main); autoPublish(p, main); } // the result itself opens by itself

@@ -201,7 +201,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     if (step.gate && !(await review(step, parsed))) { summary.failed = id; if (!signal?.aborted) send({ type: "paused", reason: "failed", next: id }); break; }
     stepTimes.push(now() - started);
     const next = playbook.steps[playbook.steps.findIndex((s) => s.id === id) + 1];
-    if (next && !body.only) send({ type: "handoff", from: step.agent, to: next.agent, note: results.get(id).note });
+    if (next && next.agent !== step.agent && !body.only) send({ type: "handoff", from: step.agent, to: next.agent, note: results.get(id).note });
   }
   if (!summary.paused && !summary.failed && !signal?.aborted) send({ type: "done", summary: { ...summary, total: playbook.steps.length, finished: playbook.steps.filter((s) => results.has(s.id)).length } });
   return summary;

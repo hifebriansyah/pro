@@ -25,7 +25,7 @@ function fakeModel({ verdicts = [], fail = () => false, reply } = {}) {
     if (reply) return { text: reply(title, prompt, m.calls) };
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     const verdict = gate ? (verdicts[v++] ?? "approved") : null;
-    const inner = title === "Mockup layar utama" ? `<mockup title="Layar utama"><!doctype html><html><body><h1>${title}</h1></body></html></mockup>` : `<document title="${title}">\n# ${title}\n\nIsi lengkap untuk ${title}. `.padEnd(250, "x") + "\n</document>";
+    const inner = title === "Mockup layar utama" || title === "Prototipe berfungsi (kode)" ? `<mockup title="Layar utama"><!doctype html><html><body><h1>${title}</h1>${"<p>isi</p>".repeat(title === "Prototipe berfungsi (kode)" ? 900 : 1)}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\nIsi lengkap untuk ${title}. `.padEnd(250, "x") + "\n</document>";
     const tail = gate ? (verdict === "approved" ? "<verdict>approved</verdict>" : "<verdict>changes</verdict><changes>- tambahkan validasi\n- jelaskan error</changes>") : "";
     return { text: `${inner}\n<handoff>Catatan ${title}.</handoff>\n${tail}` };
   };
@@ -117,31 +117,31 @@ test("runTeam: the whole software playbook, in order, with handoffs, the review 
   const m = fakeModel();
   const { events, summary } = await collect(body(), { chatFn: m.chat });
   assert.equal(events[0].type, "plan");
-  assert.deepEqual(events[0].steps.map((s) => s.name), ["Raka", "Nadia", "Kirana", "Bima", "Sinta", "Citra"]);
+  assert.deepEqual(events[0].steps.map((s) => s.name), ["Raka", "Nadia", "Kirana", "Bima", "Bima", "Sinta", "Citra"]);
   assert.ok(events[0].steps.every((s) => s.status === "pending"));
-  assert.deepEqual(events.filter((e) => e.type === "artifact").map((e) => e.id), ["prd", "stories", "design", "tech", "qa", "summary"]);
+  assert.deepEqual(events.filter((e) => e.type === "artifact").map((e) => e.id), ["prd", "stories", "design", "tech", "build", "qa", "summary"]);
   assert.equal(events.find((e) => e.id === "design" && e.type === "artifact").kind, "mockup");
   assert.deepEqual(events.filter((e) => e.type === "handoff").map((e) => `${e.from}>${e.to}`), ["po>ba", "ba>designer", "designer>engineer", "engineer>qa", "qa>delivery"]);
   const rv = events.find((e) => e.type === "review");
   assert.deepEqual([rv.id, rv.by, rv.verdict, rv.final], ["qa", "qa", "approved", true]);
   assert.equal(events.at(-1).type, "done");
-  assert.deepEqual([events.at(-1).summary.finished, events.at(-1).summary.total, summary.calls, summary.revisions], [6, 6, 6, 0]);
+  assert.deepEqual([events.at(-1).summary.finished, events.at(-1).summary.total, summary.calls, summary.revisions], [7, 7, 7, 0]);
   assert.match(m.prompts[3], /- Nadia \(User story dan kriteria penerimaan\): Catatan User story/, "Bima got Nadia's note");
   assert.match(m.prompts[1], /Isi lengkap untuk PRD/, "Nadia got the PRD itself");
-  assert.equal(events.filter((e) => e.type === "step" && e.phase === "start").length, 6);
+  assert.equal(events.filter((e) => e.type === "step" && e.phase === "start").length, 7);
 });
 
 test("runTeam: a review that asks for changes sends the author back once, then the reviewer checks again", async () => {
   const m = fakeModel({ verdicts: ["changes", "approved"] });
   const { events, summary } = await collect(body(), { chatFn: m.chat });
-  const order = events.filter((e) => ["review", "handoff"].includes(e.type) || (e.type === "artifact" && ["tech", "qa"].includes(e.id))).map((e) => `${e.type}:${e.id ?? e.from + ">" + e.to}${e.revision ? ":rev" : ""}${e.type === "review" ? ":" + e.verdict + (e.final ? ":final" : "") : ""}`);
-  assert.deepEqual(order.slice(order.indexOf("artifact:tech")), [
-    "artifact:tech", "handoff:engineer>qa", "artifact:qa", "review:qa:changes", "handoff:qa>engineer", "artifact:tech:rev", "handoff:engineer>qa", "artifact:qa", "review:qa:approved:final", "handoff:qa>delivery"]);
+  const order = events.filter((e) => ["review", "handoff"].includes(e.type) || (e.type === "artifact" && ["build", "qa"].includes(e.id))).map((e) => `${e.type}:${e.id ?? e.from + ">" + e.to}${e.revision ? ":rev" : ""}${e.type === "review" ? ":" + e.verdict + (e.final ? ":final" : "") : ""}`);
+  assert.deepEqual(order.slice(order.indexOf("artifact:build")), [
+    "artifact:build", "handoff:engineer>qa", "artifact:qa", "review:qa:changes", "handoff:qa>engineer", "artifact:build:rev", "handoff:engineer>qa", "artifact:qa", "review:qa:approved:final", "handoff:qa>delivery"]);
   assert.equal(summary.revisions, 1);
-  assert.equal(summary.calls, 8);
+  assert.equal(summary.calls, 9);
   const fix = m.prompts.find((p) => /REVIEW FEEDBACK from Sinta/.test(p));
   assert.match(fix, /tambahkan validasi/);
-  assert.match(fix, /YOUR PREVIOUS VERSION\n# Rencana teknis/);
+  assert.match(fix, /YOUR PREVIOUS VERSION\n<!doctype html>/);
   assert.match(m.prompts.at(-2), /second review/, "the reviewer is told it is the second look");
   assert.equal(events.at(-1).type, "done");
 });
@@ -164,11 +164,11 @@ test("runTeam: resume: finished steps are not done again, and say so in the plan
   assert.deepEqual(Object.keys(done), ["prd", "stories"]);
   const second = fakeModel();
   const run2 = await collect(body({ done }), { chatFn: second.chat });
-  assert.deepEqual(run2.events[0].steps.map((s) => s.status), ["done", "done", "pending", "pending", "pending", "pending"]);
-  assert.equal(second.calls, 4);
+  assert.deepEqual(run2.events[0].steps.map((s) => s.status), ["done", "done", "pending", "pending", "pending", "pending", "pending"]);
+  assert.equal(second.calls, 5);
   assert.match(second.prompts[0], /- Nadia \(User story/, "the earlier notes came back with the project");
   assert.equal(run2.events.at(-1).type, "done");
-  assert.equal(run2.events.at(-1).summary.finished, 6);
+  assert.equal(run2.events.at(-1).summary.finished, 7);
 });
 
 test("runTeam: it stops cleanly before it runs out of time", async () => {
@@ -336,7 +336,7 @@ test("runTeam: a draft that is too short is asked for once more, complete; the l
   const again = await collect(web(), { chatFn: long.chat });
   assert.equal(long.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "a page that is long enough is left alone");
   const software = fakeModel();
-  await collect(body(), { chatFn: software.chat });
+  await collect(body({ goal: "Kampanye Instagram untuk toko kopi", playbook: "campaign" }), { chatFn: software.chat });
   assert.equal(software.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "playbooks without a minimum are untouched");
   void again;
 });
