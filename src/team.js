@@ -107,7 +107,7 @@ export function buildStepPrompt({ step, goal, results, persona, skill, revision,
   if (notes) lines.push(`HANDOFF NOTES SO FAR\n${notes}`);
   if (step.edits && wantsThree(goal) && !revision) {
     const page = results.get(step.edits)?.artifact?.content ?? "";
-    lines.push(`STARTER CODE FOR THE 3D PART (it works as it is: three.js r128 from ${"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"}, which you load with a <script src> line). Adapt it to this page: the object, colours and motion that fit the goal${sceneContainer(page) ? `; it already renders into #${sceneContainer(page)}, the container the designer left` : "; give it a container in the hero with <change> or <add-html>"}. Keep it working.\n${threeStarter(sceneContainer(page))}`);
+    lines.push(`STARTER CODE FOR THE 3D PART (it works as it is: three.js r128 from ${"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"}, which you load with a <script src> line). Adapt it to this page: the object, colours and motion that fit the goal${sceneContainer(page) ? `; it already renders into #${sceneContainer(page)}, the container the designer left` : "; give it a container where the brief puts the 3D part, with <change> or <add-html>"}. Keep it working.\n${threeStarter(sceneContainer(page))}`);
   }
   if (revision && editing) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version (the file above): fix every point with your changes to that file.${step.edits ? " Your JavaScript replaces the file's current script, so send all of it." : ""}\n${revision.changes}`);
   else if (revision) lines.push(`REVIEW FEEDBACK from ${revision.by === "user" ? "the client" : byId(revision.by).name} on your previous version: fix every point.\n${revision.changes}\n\nYOUR PREVIOUS VERSION\n${cut(revision.previous, step.kind === "mockup" ? FILE_CHARS : PREVIOUS_CHARS)}\n\nWrite the complete improved version (not a list of edits).`);
@@ -276,7 +276,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
   const inParts = async (step, info, persona, extra) => {
     const full = buildStepPrompt({ step, goal: body.goal, results, persona, skill: skillText(step.kind), playbook, ...extra });
     summary.calls++;
-    let reply = await chatFn(full + "\n\nTHIS PAGE IS WRITTEN IN TWO PARTS, so each answer finishes in time. Now write ONLY PART 1: <mockup title=\"...the page's name...\"> and then the file from <!doctype html>: the complete <head> (Tailwind with its config, fonts, a short <style> if needed), then the body from the header and navigation through the hero and the next sections, about half of the page (about 4,000 characters). End PART 1 with the line <!-- BAGIAN 2 --> and stop there: no closing tags, no handoff.", { signal });
+    let reply = await chatFn(full + "\n\nTHIS PAGE IS WRITTEN IN TWO PARTS, so each answer finishes in time. Now write ONLY PART 1: <mockup title=\"...the page's name...\"> and then the file from <!doctype html>: the complete <head> (Tailwind with its config, fonts, a short <style> if needed), then the body: the header and the first sections of the brief's SECTIONS list, in its order, about half of the page (about 4,000 characters). End PART 1 with the line <!-- BAGIAN 2 --> and stop there: no closing tags, no handoff.", { signal });
     const t1 = String(reply.text ?? "");
     const title = /<mockup[^>]*title=["']([^"']+)["']/i.exec(t1)?.[1] || step.title;
     let first = t1.replace(/<\/?mockup[^>]*>/gi, "");
@@ -288,7 +288,7 @@ export async function runTeam(body, { send, signal, chatFn, personas, skills = n
     try {
       summary.calls++;
       const short = buildStepPrompt({ step, goal: body.goal, results, persona, skill: "", playbook, ...extra, compact: true });
-      reply = await chatFn(`${short}\n\nPART 1 OF THE PAGE IS DONE (below). Now write ONLY PART 2, continuing right after it: the sections of the brief that part 1 does not have yet, the contact form, the footer, then </body></html>. Use the same Tailwind classes, colours and components as part 1; do not repeat the head or a section that is already there. Answer with the HTML of part 2 only (no <mockup> tag), then <handoff>...</handoff> for the whole page.\n\nPART 1\n${first}`, { signal });
+      reply = await chatFn(`${short}\n\nPART 1 OF THE PAGE IS DONE (below). Now write ONLY PART 2, continuing right after it: the rest of the brief's SECTIONS list (every section part 1 does not have yet, in the brief's order), then the footer and </body></html>. Use the same Tailwind classes, colours and components as part 1; do not repeat the head or a section that is already there. Answer with the HTML of part 2 only (no <mockup> tag), then <handoff>...</handoff> for the whole page.\n\nPART 1\n${first}`, { signal });
       const t2 = String(reply.text ?? "");
       note = /<handoff>([\s\S]*?)(?:<\/handoff>|$)/i.exec(t2)?.[1]?.trim() ?? "";
       second = t2.replace(/<handoff>[\s\S]*$/i, "").replace(/<\/?mockup[^>]*>/gi, "").replace(/^[\s\S]*?(?=<)/, "").trim();

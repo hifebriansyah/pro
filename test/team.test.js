@@ -297,7 +297,7 @@ test("the website playbook: a goal about a page picks it, and its result is the 
   assert.equal(stepById(pb, "design").agent, "designer", "the UI/UX designer writes the design system first");
   assert.equal(stepById(pb, "design").kind, "document");
   assert.deepEqual(stepById(pb, "page").uses, ["brief", "copy", "design"], "the page is built from the copy and the design system");
-  assert.deepEqual(stepById(pb, "build").uses, ["page", "copy"], "the engineer builds on the designer's page");
+  assert.deepEqual(stepById(pb, "build").uses, ["page", "brief", "copy"], "the engineer builds on the designer's page, knowing from the brief what it must do");
   assert.equal(stepById(pb, "qa").gate.of, "build", "the reviewer looks at the finished page");
   for (const goal of ["Buatkan landing page untuk jasa pembuatan website", "Bikin website company profile untuk CV Maju", "Saya butuh halaman web untuk toko kue", "Landing page promo Ramadan", "one page portfolio fotografer"]) assert.equal(suggestPlaybook(goal), "website", goal);
   assert.equal(suggestPlaybook("Kampanye Instagram untuk toko kopi"), "campaign");
@@ -350,4 +350,16 @@ test("a project step never carries the persona's chat rules (short replies, ques
     assert.match(p, /Stay in character as \w+/, `${id}: the identity stays`);
     assert.ok(projectPersona(text).split("\n").filter((l) => l.startsWith("- ")).length >= 4, `${id}: the professional rules stay`);
   }
+});
+
+test("the website's structure is not ours: the brief decides the sections for the topic, and copy, page, engineer and QA follow the brief's list", () => {
+  const pb = PLAYBOOKS.website;
+  const task = (id) => stepById(pb, id).task;
+  assert.match(task("brief"), /decide its structure yourself from the topic: there is no standard template/);
+  assert.match(task("brief"), /numbered SECTIONS list of 5 to 8 sections/);
+  assert.match(task("copy"), /every section in the brief's SECTIONS list, in that order/);
+  assert.match(task("page"), /exactly the sections of the brief's SECTIONS list, in its order/);
+  assert.match(task("build"), /for what THIS page has[\s\S]*Do not add behaviour for parts the page does not have/);
+  assert.match(task("qa"), /the brief's sections in its order \(and no unrelated template sections\)/);
+  for (const id of ["copy", "page", "build"]) assert.doesNotMatch(task(id), /three realistic testimonials|five FAQ|the benefit section|services or prices, testimonials, the FAQ/, `${id} carries no fixed section list`);
 });
