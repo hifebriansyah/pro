@@ -438,7 +438,7 @@
   <aside class="side">
     <header>
       <h1>Chat</h1>
-      <select id="provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option><option value="deepseek">DeepSeek</option></select>
+      <select id="provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
       <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema"></button>
     </header>
     <nav class="modes" data-modes aria-label="Tampilan"></nav>
@@ -469,7 +469,7 @@
       <nav class="modes inbar" data-modes aria-label="Tampilan"></nav>
       <div class="of-title"><b>Proyek Tim</b><span id="pj-sub">Beri satu tujuan, tim mengerjakannya bersama</span></div>
       <div class="of-tools">
-        <select id="pj-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option><option value="deepseek">DeepSeek</option></select>
+        <select id="pj-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
         <button class="icon-btn" id="pj-new" type="button" title="Proyek baru" aria-label="Proyek baru"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
         <button class="icon-btn" id="pj-theme" type="button"></button>
       </div>
@@ -575,7 +575,8 @@ const PROXY = (() => {
 })();
 const PROVIDERS = ["islam", "quran", "deepseek"];
 let provider = "islam";   // the answer source: islam-gpt.org, quran-gpt.netlify.app or DeepSeek (all but islam-gpt only through the Worker: quran-gpt allows no other origin, DeepSeek runs there)
-try { const saved = localStorage.getItem("islam-chat:provider"); if (PROVIDERS.includes(saved)) provider = saved; } catch {}
+// DeepSeek is paid for: it is only restored (and only offered) once the Worker says this visitor may use it (see paintAccess)
+try { const saved = localStorage.getItem("islam-chat:provider"); if (PROVIDERS.includes(saved) && saved !== "deepseek") provider = saved; } catch {}
 let webOn = false;
 try { webOn = localStorage.getItem("islam-chat:web") === "1"; } catch {}
 // an anonymous id for this browser, made once
@@ -1084,7 +1085,7 @@ async function sendMessage(text) {
     let res;
     if (useWorker) {
       // through the local proxy, which lets the model search the web and streams back the same SSE events
-      res = await fetch(PROXY + "/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider, agent: c.id }) }).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
+      res = await fetch(PROXY + "/agent", authInit({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider, agent: c.id }) })).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
       if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
     } else {
       // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
@@ -1162,10 +1163,29 @@ $("mock-devices").onclick = (e) => { const b = e.target.closest("button"); if (b
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
 const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
 // a team project takes many model calls: until somebody picks a source, its screen offers the faster one (quran-gpt)
+let deepseekAllowed = false; // the Worker's GET /access: only the allowed accounts see and may use DeepSeek
+const authInit = (init = {}) => (accountApi && PROXY === WORKER ? accountApi.requestInit(init) : init); // adds who is asking (the shared sign-in) to a request to our Worker (not to a local proxy)
+let accountApi = null;
+function paintAccess(allowed) {
+  deepseekAllowed = !!allowed;
+  for (const id of ["provider", "pj-provider"]) {
+    const sel = $(id), has = [...sel.options].some((o) => o.value === "deepseek");
+    if (allowed && !has) { const o = document.createElement("option"); o.value = "deepseek"; o.textContent = "DeepSeek"; sel.append(o); }
+    if (!allowed && has) [...sel.options].find((o) => o.value === "deepseek").remove();
+  }
+  if (!allowed && provider === "deepseek") setProvider("islam"); // signed out, or another account: back to the free source
+  if (allowed) { try { if (localStorage.getItem("islam-chat:provider") === "deepseek" && provider !== "deepseek") setProvider("deepseek"); } catch {} }
+  $("provider").value = provider; $("pj-provider").value = projectProvider();
+}
+const projectProvider = () => (providerChosen ? provider : "quran");
+async function refreshAccess() {
+  if (!accountApi) return;
+  try { const res = await fetch(PROXY + "/access", authInit({})); paintAccess(res.ok ? (await res.json()).deepseek === true : false); } catch { paintAccess(false); }
+}
 let providerChosen = false;
 try { providerChosen = localStorage.getItem("islam-chat:provider") !== null; } catch {}
 function setProvider(v) {
-  provider = PROVIDERS.includes(v) ? v : "islam";
+  provider = PROVIDERS.includes(v) && (v !== "deepseek" || deepseekAllowed) ? v : "islam"; // DeepSeek only for an account the Worker allowed
   providerChosen = true;
   try { localStorage.setItem("islam-chat:provider", provider); } catch {}
   $("provider").value = provider; $("pj-provider").value = provider; // the chat list and the project screen show the same choice
@@ -1377,7 +1397,7 @@ async function openProject(id) {
   try {
     const { createProjectView } = await import("./project/view.js");
     projectView = createProjectView({ host: $("pj-body"), deps: {
-      el, agentOf, paintAvatar, openDoc, closeDoc, setDocUrl, openChat: (id) => open(id), proxy: PROXY, getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
+      el, agentOf, paintAvatar, openDoc, closeDoc, setDocUrl, openChat: (id) => open(id), proxy: PROXY, fetch: (url, init) => fetch(url, authInit(init)), getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
       download: downloadText,
       // the address follows the project screen: a new entry in the history for each project, so the browser's back button works
       route: (id) => { const want = id ? `#proyek/${id}` : "#proyek"; if (projectOn && location.hash !== want) try { history.pushState(null, "", want); } catch {} },
@@ -1403,8 +1423,10 @@ try { if (JSON.parse(localStorage.getItem("islam-chat:projects:v1") || "[]").som
 // the account button (account/account.js): who is signed in on every situs.id site; sign-in lives at auth.situs.id. Before each header's theme button.
 import("./account/account.js").then(({ createAccount }) => {
   const account = createAccount();
+  accountApi = account;
+  account.onChange = () => refreshAccess(); // who is signed in changed: what they may use changes with it
   for (const id of ["theme", "of-theme", "pj-theme"]) account.mount(document.getElementById(id));
-  account.refresh();
+  account.refresh().finally(refreshAccess); // the first answer: who is it, and may they use DeepSeek
 }).catch(() => { /* no account button: the page works without it */ });
 </script>
 </body>

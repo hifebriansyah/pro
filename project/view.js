@@ -56,7 +56,7 @@ export function createProjectView({ host, deps }) {
     engage(p); // everybody in this project is at work in the office until it is done
     persist(true); render();
     try {
-      const res = await fetch(`${deps.proxy}/team`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(runBody(p, opts)), signal: ac.signal });
+      const res = await (deps.fetch ?? fetch)(`${deps.proxy}/team`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(runBody(p, opts)), signal: ac.signal });
       if (!res.ok) {
         const msg = res.status === 429 ? "Terlalu banyak proyek dalam semenit. Coba lagi sebentar lagi." : res.status === 503 ? "Proyek tim belum tersedia di server ini." : res.status === 404 ? "Server ini belum mendukung proyek tim." : (await res.json().catch(() => ({}))).error ?? `Server menjawab ${res.status}.`;
         throw Object.assign(new Error(msg), { fatal: true });

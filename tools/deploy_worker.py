@@ -25,7 +25,7 @@ IMPORT = re.compile(r'''from\s+["'](\.{1,2}/[^"']+)["']''')
 
 
 def load_env():
-    for f in (ROOT / ".env", ROOT.parent / ".env", ROOT.parent / "chat-learning" / ".env"):  # the first file that has a value wins
+    for f in (ROOT / ".env", ROOT.parent / ".env", ROOT.parent / "chat-learning" / ".env", ROOT.parent / "auth" / ".env"):  # the first file that has a value wins
         if f.exists():
             for line in f.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
@@ -143,11 +143,15 @@ def main():
     if not payload.get("success"):
         sys.exit(f"Deploy failed: {payload.get('errors')}")
     print(f"Deployed worker '{cfg['name']}' (modules: {', '.join(mods)}; skills: {', '.join(s['name'] for s in found_skills) or 'none'}).")
-    for name in ("AXIOM_TOKEN", "BACKEND_SECRET"):  # copied from .env, never printed
-        value = os.environ.get(name)
+    # copied from .env, never printed: AXIOM_TOKEN (the request log), BACKEND_SECRET (the backend), SESSION_SECRET (from SITUS_SESSION_SECRET in auth/.env: it lets this
+    # Worker read the sign-in cookie auth.situs.id sets) and DEEPSEEK_EMAILS (the only accounts that may use DeepSeek: without it nobody may)
+    for name, source in (("AXIOM_TOKEN", "AXIOM_TOKEN"), ("BACKEND_SECRET", "BACKEND_SECRET"), ("SESSION_SECRET", "SITUS_SESSION_SECRET"), ("DEEPSEEK_EMAILS", "DEEPSEEK_EMAILS")):
+        value = os.environ.get(source)
         if value:
             res = call(token, "PUT", f"/accounts/{account}/workers/scripts/{cfg['name']}/secrets", {"name": name, "text": value, "type": "secret_text"})
             print(f"Secret {name} {'set' if res.get('success') else 'NOT set'} on the Worker.")
+        elif name in ("SESSION_SECRET", "DEEPSEEK_EMAILS"):
+            print(f"{source} is not in .env: DeepSeek stays closed to everybody.")
 
     domain = cfg["domain"]
     zones = call(token, "GET", f"/zones?name={'.'.join(domain.split('.')[-2:])}").get("result") or []

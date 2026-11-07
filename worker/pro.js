@@ -14,6 +14,7 @@
 import { MAX_BODY, parseAgentBody, runAgent } from "../src/serve.js";
 import { skillsFromList } from "../src/skills.js";
 import { handlePublish, servePage } from "./publish.js";
+import { mayUseDeepseek, sessionUser } from "./access.js";
 import { MODELS, runModel } from "../src/workersai.js";
 
 // Filled in by tools/deploy_worker.py from skills/*/SKILL.md: [{name, description, triggers, body}]
@@ -67,8 +68,9 @@ export default {
     const originOk = allowed.some((a) => origin === a || origin.startsWith(`${a}:`));  // http://localhost also allows its ports
     const cors = {
       "Access-Control-Allow-Origin": originOk ? origin : "null",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization", // Authorization: a page on localhost sends its sign-in token (worker/access.js)
+      ...(originOk ? { "Access-Control-Allow-Credentials": "true" } : {}), // the shared sign-in cookie of situs.id
       Vary: "Origin",
     };
     const u = new URL(request.url);
@@ -99,6 +101,11 @@ export default {
     }
     if (request.method === "OPTIONS") return new Response(null, { status: originOk ? 204 : 403, headers: cors });
     if (!originOk) return reply({ error: "forbidden" }, 403);
+    // GET /access -> {deepseek: true|false}: what the signed-in visitor may use (the page shows the DeepSeek option only to those who may)
+    if (u.pathname === "/access" && request.method === "GET") {
+      const user = await sessionUser(request, env);
+      return new Response(JSON.stringify({ deepseek: mayUseDeepseek(user, env) }), { headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    }
     const team = u.pathname === "/team";
     const publish = u.pathname === "/publish" || u.pathname === "/unpublish";
     if (publish && request.method === "POST") {
@@ -119,6 +126,11 @@ export default {
     if (Number(request.headers.get("Content-Length") || 0) > maxBody) return reply({ error: "too large" }, 413);
     const text = await request.text().catch(() => "");
     if (text.length > maxBody) return reply({ error: "too large" }, 413);
+    // DeepSeek is paid for: only the allowed emails, checked here whatever the page shows (nothing is spent, no limiter slot is for an outsider)
+    // (read as JSON, exactly as the backend reads it: a text match could be fooled by an escape such as "\u0064eepseek")
+    let wanted = null;
+    try { wanted = JSON.parse(text)?.provider; } catch { /* not JSON: it is refused further on */ }
+    if (wanted === "deepseek" && !mayUseDeepseek(await sessionUser(request, env), env)) return reply({ error: "DeepSeek hanya untuk akun tertentu" }, 403);
     if (team) return forwardTeam(request, text, env, ctx, { cors, reply, who, started });
     let body;
     try {

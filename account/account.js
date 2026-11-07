@@ -3,7 +3,9 @@
 // /login, and signs them out. The same file is in the pro and faith projects.
 //   On localhost (development) the cookie of situs.id does not exist, so the sign-in hands the session back in the address (#situs_token=...); it is kept in
 //   localStorage and sent to /me as a Bearer token. The button is there on localhost too.
-//   createAccount({doc, loc, fetchFn}) -> { mount(beforeElement), refresh(), user }   mount puts a button before an element (a header's theme button, say);
+//   createAccount({doc, loc, fetchFn}) -> { mount(beforeElement), refresh(), user, requestInit(init), onChange }   mount puts a button before an element (a header's
+//   theme button, say); requestInit(init) adds what a request to one of our Workers needs to be recognised (the shared cookie, or on localhost the Bearer token);
+//   onChange(user) is called whenever who is signed in changes;
 //   every button shows the same state, and the state is asked again whenever the tab comes back into view (another tab may have signed in or out).
 export const AUTH = "https://auth.situs.id";
 
@@ -68,7 +70,7 @@ export function createAccount({ doc = document, loc = location, fetchFn = fetch,
     menu = el("div", "acct-menu"); menu.setAttribute("role", "menu"); menuFor = b;
     menu.append(el("b", null, user.name), el("span", null, user.email));
     const out = el("button", "acct-out", "Keluar"); out.type = "button"; out.setAttribute("role", "menuitem");
-    out.onclick = async () => { out.disabled = true; await signOut(fetchFn, token()); if (local) storage.removeItem(TOKEN_KEY); user = null; paint(); closeMenu(); };
+    out.onclick = async () => { out.disabled = true; await signOut(fetchFn, token()); if (local) storage.removeItem(TOKEN_KEY); user = null; paint(); closeMenu(); api.onChange?.(user); };
     menu.append(out);
     doc.body.append(menu);
     const r = b.getBoundingClientRect();
@@ -79,6 +81,13 @@ export function createAccount({ doc = document, loc = location, fetchFn = fetch,
 
   const api = {
     get user() { return user; },
+    onChange: null,
+    /** fetch options for a request to one of our Workers (pro-worker.situs.id, faith-worker.situs.id), so that it knows who is asking. */
+    requestInit(init = {}) {
+      const t = token();
+      if (local) return t ? { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${t}` } } : init;
+      return { ...init, credentials: "include" };
+    },
     mount(before) {
       if (!(onSitus(loc.hostname) || local) || !before?.parentNode) return null;
       const b = el("button", "icon-btn acct"); b.type = "button";
@@ -89,7 +98,7 @@ export function createAccount({ doc = document, loc = location, fetchFn = fetch,
       return b;
     },
     // a page on localhost with no token has nobody signed in, and no cookie to send: nothing to ask
-    async refresh() { const t = token(); user = local && !t ? null : await fetchUser(fetchFn, t); paint(); return user; },
+    async refresh() { const t = token(); const was = user?.email; user = local && !t ? null : await fetchUser(fetchFn, t); paint(); if (user?.email !== was) api.onChange?.(user); return user; },
   };
   doc.addEventListener("click", (e) => { if (menu && !menu.contains(e.target)) closeMenu(); });
   doc.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
