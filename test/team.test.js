@@ -25,7 +25,8 @@ function fakeModel({ verdicts = [], fail = () => false, reply } = {}) {
     if (reply) return { text: reply(title, prompt, m.calls) };
     const gate = /<verdict>approved<\/verdict> or/.test(prompt);
     const verdict = gate ? (verdicts[v++] ?? "approved") : null;
-    const inner = title === "Mockup layar utama" || title === "Prototipe berfungsi (kode)" ? `<mockup title="Layar utama"><!doctype html><html><body><h1>${title}</h1>${"<p>isi</p>".repeat(title === "Prototipe berfungsi (kode)" ? 900 : 1)}</body></html></mockup>` : `<document title="${title}">\n# ${title}\n\nIsi lengkap untuk ${title}. `.padEnd(250, "x") + "\n</document>";
+    const inner = title === "Prototipe berfungsi (kode)" || title === "Halaman jadi dengan JavaScript" ? `<document title="script.js">document.addEventListener("DOMContentLoaded", () => { const el = document.getElementById("x"); if (!el) return; });</document>`
+      : title === "Mockup layar utama" ? `<mockup title="Layar utama"><!doctype html><html><body><h1>${title}</h1></body></html></mockup>` : `<document title="${title}">\n# ${title}\n\nIsi lengkap untuk ${title}. `.padEnd(250, "x") + "\n</document>";
     const tail = gate ? (verdict === "approved" ? "<verdict>approved</verdict>" : "<verdict>changes</verdict><changes>- tambahkan validasi\n- jelaskan error</changes>") : "";
     return { text: `${inner}\n<handoff>Catatan ${title}.</handoff>\n${tail}` };
   };
@@ -59,7 +60,7 @@ test("parseTeamBody: a goal is needed; the rest is cleaned and capped", () => {
   assert.equal(parseTeamBody(JSON.stringify({ goal: "Kampanye promosi", playbook: "campaign", provider: "islam", only: "copy" })).only, "copy");
 });
 
-test("buildStepPrompt: the persona, the goal, the task and the contract; earlier notes only; long inputs shortened; a mockup is summarised", () => {
+test("buildStepPrompt: the persona, the goal, the task and the contract; earlier notes only; long inputs shortened; a mockup is outlined, not pasted", () => {
   const pb = PLAYBOOKS.software;
   const results = new Map([
     ["prd", { note: "PRD selesai: fokus absensi.", artifact: { kind: "document", title: "PRD", content: "PRD lengkap" } }],
@@ -76,8 +77,8 @@ test("buildStepPrompt: the persona, the goal, the task and the contract; earlier
   assert.ok(!p.includes("S".repeat(9000)), "a long input is shortened");
   assert.match(p, /dipersingkat/);
   assert.match(p, /Story lengkap/);
-  assert.match(p, /mockup HTML "Layar"/);
-  assert.doesNotMatch(p, /<html>/, "the mockup's HTML is not pasted");
+  assert.match(p, /HTML page "Layar"[\s\S]*inline scripts: 0/, "the engineer is told what the page holds");
+  assert.doesNotMatch(p, /<html>/, "the mockup's HTML is not pasted, its outline is");
   assert.match(p, /ONE <document title="...">/);
   assert.doesNotMatch(p, /<verdict>approved<\/verdict> or/, "no verdict for an ordinary step");
   assert.match(p, /Tulis semuanya dalam Bahasa Indonesia/);
@@ -141,7 +142,7 @@ test("runTeam: a review that asks for changes sends the author back once, then t
   assert.equal(summary.calls, 9);
   const fix = m.prompts.find((p) => /REVIEW FEEDBACK from Sinta/.test(p));
   assert.match(fix, /tambahkan validasi/);
-  assert.match(fix, /YOUR PREVIOUS VERSION\n<!doctype html>/);
+  assert.match(fix, /YOUR PREVIOUS VERSION\n\s*document\.addEventListener/);
   assert.match(m.prompts.at(-2), /second review/, "the reviewer is told it is the second look");
   assert.equal(events.at(-1).type, "done");
 });
@@ -289,7 +290,7 @@ test("the website playbook: a goal about a page picks it, and its result is the 
   const pb = PLAYBOOKS.website;
   assert.equal(pb.primary, "build", "the result is the engineer's finished page");
   assert.equal(stepById(pb, "build").kind, "mockup");
-  assert.ok(stepById(pb, "build").minChars >= 5000);
+  assert.deepEqual(stepById(pb, "build").script, { into: "page" }, "the engineer writes only the script, which goes into the designer's page");
   assert.equal(stepById(pb, "build").agent, "engineer", "the software engineer writes the JavaScript");
   assert.deepEqual(pb.steps.map((s) => s.id), ["brief", "copy", "design", "page", "build", "qa", "launch"]);
   assert.equal(stepById(pb, "design").agent, "designer", "the UI/UX designer writes the design system first");
@@ -312,19 +313,20 @@ test("runTeam: a draft that is too short is asked for once more, complete; the l
     const chatFn = async (prompt) => {
       prompts.push(prompt);
       const title = titleOf(prompt);
-      if (title === "Halaman landing page" || title === "Halaman jadi dengan JavaScript") { const second = /TOO SHORT AND TOO SIMPLE/.test(prompt); return second ? secondTry() : { text: page(20) }; }
+      if (title === "Halaman jadi dengan JavaScript") return { text: `<document title="script.js">document.addEventListener("DOMContentLoaded", () => {});</document><handoff>Catatan skrip.</handoff>` };
+      if (title === "Halaman landing page") { const second = /TOO SHORT AND TOO SIMPLE/.test(prompt); return second ? secondTry() : { text: page(20) }; }
       const gate = /<verdict>approved<\/verdict> or/.test(prompt);
       return { text: `<document title="${title}">\n# ${title}\n\nisi dokumen ${"x".repeat(title === "Design system" ? 2600 : 200)}\n</document><handoff>Catatan ${title}.</handoff>${gate ? "<verdict>approved</verdict>" : ""}` };
     };
     const { events, summary } = await collect(web(), { chatFn });
-    return { events, summary, prompts, page: events.find((e) => e.type === "artifact" && e.id === "build") };
+    return { events, summary, prompts, page: events.find((e) => e.type === "artifact" && e.id === "page") };
   };
   let r = await run(() => ({ text: page(600) }));
   assert.equal(r.events[0].primary, "build", "the plan names the headline step");
   assert.ok(r.page.content.length > 7000, "the richer version replaced the draft");
-  assert.equal(r.prompts.filter((p) => /TOO SHORT AND TOO SIMPLE/.test(p)).length, 2, "asked once for each of the two pages, not in a loop");
+  assert.equal(r.prompts.filter((p) => /TOO SHORT AND TOO SIMPLE/.test(p)).length, 1, "asked once, not in a loop");
   assert.match(r.prompts.find((p) => /TOO SHORT AND TOO SIMPLE/.test(p)), /YOUR DRAFT\n<!doctype html>/);
-  assert.equal(r.summary.calls, 9, "seven steps and one more call for each of the two pages");
+  assert.equal(r.summary.calls, 8, "seven steps and one more call for the page");
   assert.equal(r.events.at(-1).type, "done");
   r = await run(() => { throw new Error("model down"); });
   assert.ok(r.page.content.length < 7000 && r.page.content.length > 100, "the draft is kept when the second try fails");
@@ -332,7 +334,7 @@ test("runTeam: a draft that is too short is asked for once more, complete; the l
   r = await run(() => ({ text: page(3) }));
   assert.ok(r.page.content.length > 400, "an answer that is not longer is not taken");
   assert.equal(r.page.content, (await run(() => ({ text: page(3) }))).page.content);
-  const long = fakeModel({ reply: (title) => (title === "Halaman landing page" || title === "Halaman jadi dengan JavaScript" ? page(600) : `<document title="${title}">${"x".repeat(title === "Design system" ? 2600 : 300)}</document><handoff>n.</handoff><verdict>approved</verdict>`) });
+  const long = fakeModel({ reply: (title) => (title === "Halaman jadi dengan JavaScript" ? `<document title="script.js">const a = 1;</document><handoff>n.</handoff>` : title === "Halaman landing page" ? page(600) : `<document title="${title}">${"x".repeat(title === "Design system" ? 2600 : 300)}</document><handoff>n.</handoff><verdict>approved</verdict>`) });
   const again = await collect(web(), { chatFn: long.chat });
   assert.equal(long.prompts.filter((p) => /TOO SHORT/.test(p)).length, 0, "a page that is long enough is left alone");
   const software = fakeModel();
