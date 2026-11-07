@@ -7,7 +7,8 @@ const office = (f) => readFileSync(new URL(`../office/${f}`, import.meta.url), "
 const workflow = readdirSync(new URL("../.github/workflows/", import.meta.url)).map((f) => readFileSync(new URL(`../.github/workflows/${f}`, import.meta.url), "utf8")).join("\n");
 
 test("the page has the way in (Kantor), the office view with its top bar, stage and team bar, and the chat to dock", () => {
-  for (const id of ["of-enter", "office", "of-exit", "of-view", "of-roster", "of-count", "of-pause", "of-reset", "of-theme", "of-zin", "of-zout"]) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.equal((html.match(/<nav class="modes[^"]*" data-modes/g) ?? []).length, 3, "the mode switcher in the chat list and in the top bars of the office and the project screen");
+  for (const id of ["office", "of-view", "of-roster", "of-count", "of-pause", "of-reset", "of-theme", "of-zin", "of-zout"]) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.match(html, /<main class="chat">/);
   assert.match(html, /\.app\.office-mode \.side \{ display: none; \}/, "the chat list gives way to the office");
   assert.match(html, /\.app\.office-mode:not\(\.in-chat\) \.chat \{ display: none; \}/, "the chat docks only when somebody is chosen");
@@ -28,7 +29,7 @@ test("the office modules only import each other, and the deploy publishes the fo
   for (const f of ["core.js", "scene.js", "office.js"]) {
     for (const m of office(f).matchAll(/^import .* from "([^"]+)"/gm)) assert.match(m[1], /^\.\//, `${f} imports ${m[1]}: only relative files`);
   }
-  assert.match(workflow, /cp -r personas icons office _site\//);
+  assert.match(workflow, /cp -r personas icons office project _site\//);
 });
 
 test("the modules load (no DOM, no THREE needed at load time) and export what the page uses", async () => {
@@ -45,7 +46,8 @@ test("the page hands the office what it needs: who is working, what they are doi
   assert.match(fn, /busy: busy\.has\(id\)/);
   assert.match(fn, /last\?\.pending \? last\.status : null/);
   assert.match(fn, /selected: state\.current === id/);
-  assert.match(fn, /visit: visit\?\.to \?\? null/, "who they are visiting to ask a question");
+  assert.match(fn, /visit: visit\?\.to \?\? handoff/, "who they are visiting: to ask a question, or to hand a finished step over");
+  assert.match(fn, /teamBusy\.get\(id\)/, "a team project has them writing a step");
   assert.match(html, /ev\.type === "consult"/, "the stream's consult events reach the office");
   assert.match(html, /onSelect: \(id\) => open\(id\)/);
   assert.match(html, /createOffice\(\{\s*THREE: window\.THREE, host: \$\("of-view"\), agents: AGENTS/);
@@ -53,7 +55,7 @@ test("the page hands the office what it needs: who is working, what they are doi
 
 test("regressions found in the browser: tags stay under the chat on a phone, the theme code does not touch the office before it exists", () => {
   assert.match(html, /\.of-view \{[^}]*isolation: isolate/, "the tags' depth order is contained");
-  assert.match(html, /var office = null, officeLoading = null, officeOn = false, officeReady = false;/, "var, because the theme code runs before this block");
+  assert.match(html, /var office = null, officeLoading = null, officeOn = false, projectOn = false, projectView = null, officeReady = false;/, "var, because the theme code runs before this block");
   assert.match(html, /if \(officeReady\) paintOfficeTools\(\);/);
   assert.match(office("office.js"), /tag\.hidden = true;/, "a tag stays hidden until the first frame has placed it (no stack of tags in a corner)");
 });

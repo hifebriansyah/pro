@@ -213,9 +213,6 @@
   }
 
   /* the virtual office (office/*.js): a 3D view of the professionals at work, with a name tag on each. Opened with the Kantor button; the chat docks on the right. */
-  .of-enter { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 13px; font-weight: 600; flex: none; }
-  .of-enter:hover { filter: brightness(1.06); }
-  .of-enter svg, .of-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .office { display: none; flex: 1; min-width: 0; flex-direction: column; background: var(--chat-bg); }
   .app.office-mode .side { display: none; }
   .app.office-mode .office { display: flex; }
@@ -273,9 +270,147 @@
     .of-zoom { display: none; }
     .of-hint { font-size: 12px; padding: 6px 12px; border-radius: 14px; top: 8px; width: max-content; max-width: calc(100% - 24px); }
     .of-top { padding-left: 10px; gap: 8px; }
-    .of-btn { padding: 8px 12px 8px 9px; }
   }
   @media (prefers-reduced-motion: reduce) { .of-hint, .of-spin, [data-state="work"] > .of-dot, .of-chip.busy .of-dot { animation: none; } }
+
+  /* the mode switcher (Obrolan, Kantor, Proyek) and the team project screen (project/*.js) */
+  .modes { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .modes button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .modes button:hover { background: var(--hover); color: var(--text); }
+  .modes button.on { background: var(--accent); color: var(--on-accent); }
+  .modes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .modes svg, .pj-ico svg, .pj-mark svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .modes.inbar { padding: 0; border: 0; flex: none; background: var(--panel); border-radius: 999px; padding: 3px; border: 1px solid var(--line); }
+  .modes.inbar button { flex: none; padding: 6px 13px; }
+  .project { display: none; flex: 1; min-width: 0; flex-direction: column; background: var(--chat-bg); }
+  .app.project-mode .side { display: none; }
+  .app.project-mode .project { display: flex; }
+  .app.project-mode .back { display: grid; }
+  @media (min-width: 761px) {
+    .app.project-mode:not(.in-chat) .chat { display: none; }
+    .app.project-mode.in-chat .chat { flex: none; width: 440px; max-width: 46%; border-left: 1px solid var(--line); }
+    .app.project-mode.in-chat.doc-open .chat { display: none; }
+  }
+  .pj-body { flex: 1; min-height: 0; overflow-y: auto; padding: 28px clamp(16px, 4vw, 44px) 56px; position: relative; }
+  .pj-start, .pj-run { max-width: 860px; margin: 0 auto; }
+  .pj-hero h2 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; }
+  .pj-hero p { color: var(--muted); margin: 0 0 24px; max-width: 62ch; font-size: 15px; }
+  .pj-label { display: block; font-weight: 600; margin-bottom: 8px; }
+  .pj-goal { width: 100%; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); padding: 14px 16px; font: inherit; resize: vertical; min-height: 96px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  .pj-goal:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+  .pj-examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 26px; }
+  .pj-chip { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 13px; text-align: left; transition: border-color .15s, color .15s; }
+  .pj-chip:hover { border-color: var(--accent); color: var(--text); }
+  .pj-books { border: 0; padding: 0; margin: 0 0 26px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .pj-books legend { font-weight: 600; margin-bottom: 10px; padding: 0; }
+  .pj-book { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1.5px solid var(--line); border-radius: 16px; background: var(--panel); cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+  .pj-book:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  .pj-book input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .pj-book.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent); }
+  .pj-book:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pj-faces { display: flex; padding-left: 8px; }
+  .pj-face { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--panel); margin-left: -8px; overflow: hidden; display: grid; place-items: center; font-size: 12px; font-weight: 600; color: #fff; flex: none; }
+  .pj-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pj-book-text b { display: block; font-size: 16px; margin-bottom: 2px; }
+  .pj-book-text span { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+  .pj-book-meta { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .pj-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .pj-primary { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; transition: filter .15s, transform .15s; }
+  .pj-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+  .pj-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .pj-hint { color: var(--muted); font-size: 13px; margin: 0; flex: 1; min-width: 220px; }
+  .pj-recent { margin-top: 40px; }
+  .pj-recent h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 12px; }
+  .pj-recent-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .pj-recent-list li { display: flex; gap: 8px; align-items: stretch; }
+  .pj-recent-item { flex: 1; min-width: 0; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); display: flex; flex-direction: column; gap: 4px; transition: border-color .15s; }
+  .pj-recent-item:hover { border-color: var(--accent); }
+  .pj-recent-top { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .pj-recent-top b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .pj-recent-meta { font-size: 12.5px; color: var(--muted); }
+  .pj-iconbtn { width: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); background: var(--panel); flex: none; }
+  .pj-iconbtn:hover { color: var(--danger); border-color: var(--danger); }
+  .pj-chip-state { font-size: 11.5px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--panel-2); color: var(--muted); flex: none; white-space: nowrap; }
+  .pj-chip-state[data-state="running"] { background: color-mix(in srgb, var(--accent) 24%, var(--panel)); color: var(--text); }
+  .pj-chip-state[data-state="done"] { background: color-mix(in srgb, #16a34a 18%, var(--panel)); color: color-mix(in srgb, #16a34a 70%, var(--text)); }
+  .pj-chip-state[data-state="failed"] { background: color-mix(in srgb, var(--danger) 16%, var(--panel)); color: var(--danger); }
+  .pj-error { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--danger) 12%, var(--panel)); border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line)); margin: 0 0 18px; font-size: 14px; }
+  .pj-error svg { width: 18px; height: 18px; fill: none; stroke: var(--danger); stroke-width: 2; flex: none; margin-top: 1px; }
+  .pj-note { color: var(--muted); font-size: 13.5px; margin: -8px 0 16px; }
+  .pj-head { display: grid; gap: 14px; margin-bottom: 26px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); }
+  .pj-title h2 { margin: 0 0 4px; font-size: 20px; line-height: 1.25; }
+  .pj-title p { margin: 0; color: var(--muted); font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pj-status { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pj-bar { flex: 1; min-width: 140px; height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
+  .pj-bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .5s ease; }
+  .pj-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pj-ctl { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pj-btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-weight: 600; font-size: 14px; transition: background .15s, border-color .15s; }
+  .pj-btn:hover { background: var(--hover); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .pj-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .pj-btn.primary:hover { filter: brightness(1.06); }
+  .pj-steps { list-style: none; margin: 0; padding: 0; }
+  .pj-step { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; }
+  .pj-rail { position: relative; display: flex; justify-content: center; }
+  .pj-rail::after { content: ""; position: absolute; top: 52px; bottom: -4px; width: 2px; background: var(--line); }
+  .pj-step:last-child .pj-rail::after { display: none; }
+  .pj-step[data-state="done"] .pj-rail::after { background: color-mix(in srgb, #16a34a 55%, var(--line)); }
+  .pj-avatar { position: relative; width: 48px; height: 48px; border-radius: 50%; padding: 0; border: 3px solid var(--line); background: var(--panel); z-index: 1; flex: none; transition: border-color .2s; }
+  .pj-avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pj-av { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; color: #fff; font-weight: 600; }
+  .pj-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pj-step[data-state="pending"] .pj-av { filter: grayscale(.7); opacity: .65; }
+  .pj-step[data-state="running"] .pj-avatar { border-color: var(--accent); animation: of-pulse 1.1s ease-in-out infinite; }
+  .pj-step[data-state="done"] .pj-avatar { border-color: #16a34a; }
+  .pj-step[data-state="failed"] .pj-avatar { border-color: var(--danger); }
+  .pj-mark { position: absolute; right: -5px; bottom: -5px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: #16a34a; border: 2px solid var(--panel); }
+  .pj-mark:empty { display: none; }
+  .pj-mark svg { width: 11px; height: 11px; stroke-width: 3; }
+  .pj-step[data-state="failed"] .pj-mark { background: var(--danger); }
+  .pj-card { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); display: flex; flex-direction: column; gap: 10px; min-width: 0; transition: border-color .2s, box-shadow .2s; }
+  .pj-step[data-state="pending"] .pj-card { background: color-mix(in srgb, var(--panel) 60%, var(--chat-bg)); }
+  .pj-step[data-state="running"] .pj-card { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .pj-card-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+  .pj-card-top b { font-size: 15.5px; }
+  .pj-who { font-size: 13px; color: var(--muted); }
+  .pj-line { margin: 0; font-size: 14px; color: var(--muted); }
+  .pj-art { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); text-align: left; width: 100%; transition: border-color .15s; }
+  .pj-art:hover { border-color: var(--accent); }
+  .pj-art .pj-ico svg { width: 22px; height: 22px; color: var(--ink); }
+  .pj-art-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .pj-art-text b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pj-art-text span { font-size: 12.5px; color: var(--muted); }
+  .pj-art-open { font-size: 13px; font-weight: 600; color: var(--link); flex: none; }
+  .pj-handoff { margin: 0; font-size: 13.5px; padding-left: 12px; border-left: 3px solid var(--line); line-height: 1.45; }
+  .pj-handoff-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
+  .pj-review { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; padding: 9px 12px; border-radius: 10px; white-space: pre-line; }
+  .pj-review[data-verdict="approved"] { background: color-mix(in srgb, #16a34a 14%, var(--panel)); }
+  .pj-review[data-verdict="changes"] { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); }
+  .pj-to { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--muted); }
+  .pj-to svg { width: 15px; height: 15px; }
+  .pj-step-actions { display: flex; gap: 14px; }
+  .pj-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--link); padding: 2px 0; }
+  .pj-link:hover { text-decoration: underline; }
+  .pj-link svg { width: 15px; height: 15px; }
+  .pj-edit textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); color: var(--text); padding: 10px 12px; font: inherit; resize: vertical; outline: none; }
+  .pj-edit textarea:focus { border-color: var(--accent); }
+  .pj-edit-row { display: flex; gap: 8px; margin-top: 8px; }
+  .pj-finish { margin: 6px 0 0; padding: 20px; border-radius: 18px; background: color-mix(in srgb, #16a34a 10%, var(--panel)); border: 1px solid color-mix(in srgb, #16a34a 35%, var(--line)); }
+  .pj-finish h3 { margin: 0 0 6px; font-size: 17px; }
+  .pj-finish p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .pj-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .project .of-tools { margin-left: auto; }
+  @media (max-width: 1100px) { .app.project-mode.doc-open .project .of-title { display: none; } } /* the document panel takes the room: the screen's title can go */
+  @media (max-width: 760px) {
+    .pj-body { padding: 18px 14px 40px; }
+    .pj-step { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; }
+    .pj-avatar { width: 42px; height: 42px; }
+    .pj-rail::after { top: 46px; }
+    .modes.inbar button span { display: none; }
+    .modes.inbar button { padding: 7px 11px; }
+    .project .of-title { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pj-step[data-state="running"] .pj-avatar, .pj-bar i { animation: none; transition: none; } }
 </style>
 </head>
 <body>
@@ -283,17 +418,17 @@
   <aside class="side">
     <header>
       <h1>Chat</h1>
-      <button class="of-enter" id="of-enter" type="button" title="Buka kantor virtual: lihat tim bekerja dan mengobrol langsung"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg><span>Kantor</span></button>
       <select id="provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
       <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema"></button>
     </header>
+    <nav class="modes" data-modes aria-label="Tampilan"></nav>
     <div class="search"><input id="q" placeholder="Cari percakapan" autocomplete="off"></div>
     <div class="list" id="list"></div>
   </aside>
 
   <section class="office" id="office" aria-label="Kantor virtual">
     <header class="of-top">
-      <button class="of-btn" id="of-exit" type="button" title="Kembali ke daftar obrolan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Obrolan</span></button>
+<nav class="modes inbar" data-modes aria-label="Tampilan"></nav>
       <div class="of-title"><b>Kantor Virtual</b><span id="of-count" aria-live="polite"></span></div>
       <div class="of-tools">
         <button class="icon-btn of-zoom" id="of-zin" type="button" title="Perbesar" aria-label="Perbesar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
@@ -307,6 +442,19 @@
       <div class="of-state" id="of-state" role="status"><div class="of-spin"></div><b>Memuat kantor…</b><span>Menyiapkan ruangan dan tim.</span></div>
     </div>
     <nav class="of-roster" id="of-roster" aria-label="Tim"></nav>
+  </section>
+
+  <section class="project" id="project" aria-label="Proyek tim">
+    <header class="of-top">
+      <nav class="modes inbar" data-modes aria-label="Tampilan"></nav>
+      <div class="of-title"><b>Proyek Tim</b><span id="pj-sub">Beri satu tujuan, tim mengerjakannya bersama</span></div>
+      <div class="of-tools">
+        <select id="pj-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
+        <button class="icon-btn" id="pj-new" type="button" title="Proyek baru" aria-label="Proyek baru"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+        <button class="icon-btn" id="pj-theme" type="button"></button>
+      </div>
+    </header>
+    <div class="pj-body" id="pj-body"><div class="of-state" role="status"><div class="of-spin"></div><b>Memuat proyek…</b></div></div>
   </section>
 
   <main class="chat">
@@ -941,8 +1089,19 @@ $("mock-bg").onclick = (e) => { const b = e.target.closest("button"); if (b && d
 $("mock-devices").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockWidth = Number(b.dataset.w); paintTools(); renderMock(); } };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
 const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
-$("provider").value = provider;
-$("provider").onchange = (e) => { provider = e.target.value === "quran" ? "quran" : "islam"; try { localStorage.setItem("islam-chat:provider", provider); } catch {} };
+// a team project takes many model calls: until somebody picks a source, its screen offers the faster one (quran-gpt)
+let providerChosen = false;
+try { providerChosen = localStorage.getItem("islam-chat:provider") !== null; } catch {}
+function setProvider(v) {
+  provider = v === "quran" ? "quran" : "islam";
+  providerChosen = true;
+  try { localStorage.setItem("islam-chat:provider", provider); } catch {}
+  $("provider").value = provider; $("pj-provider").value = provider; // the chat list and the project screen show the same choice
+  projectView?.render(); // its hint names the source
+}
+$("provider").onchange = (e) => setProvider(e.target.value);
+$("pj-provider").onchange = (e) => setProvider(e.target.value);
+$("provider").value = provider; $("pj-provider").value = providerChosen ? provider : "quran";
 $("web").onclick = () => { webOn = !webOn; try { localStorage.setItem("islam-chat:web", webOn ? "1" : "0"); } catch {} paintWeb(); };
 paintWeb();
 $("q").oninput = renderList;
@@ -993,7 +1152,7 @@ const THREE_SRI = "sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYd
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>';
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
-var office = null, officeLoading = null, officeOn = false, officeReady = false; // var: the theme code above runs before this block and looks at officeReady
+var office = null, officeLoading = null, officeOn = false, projectOn = false, projectView = null, officeReady = false; // var: the theme code above runs before this block and looks at officeReady
 
 const loadThree = () => new Promise((resolve, reject) => {
   if (window.THREE) return resolve();
@@ -1006,13 +1165,15 @@ const loadThree = () => new Promise((resolve, reject) => {
 // what the office needs to know about a professional: writing an answer now (and what they are doing), and being chatted with
 function officeState(id) {
   const c = chatById(id), last = c?.messages[c.messages.length - 1];
-  const visit = consults.get(id) ?? null;
-  const asked = [...consults].find(([, v]) => v.to === id); // somebody is asking this person a question: they stop and answer
+  const visit = consults.get(id) ?? null;                       // asking a colleague in a chat answer
+  const handoff = teamVisits.get(id) ?? null;                   // handing a finished step to the next person in a team project
+  const asked = [...consults].find(([, v]) => v.to === id);     // somebody is asking this person a question: they stop and answer
+  const writing = teamBusy.get(id) ?? null;                     // writing a step of a team project
   return {
-    busy: busy.has(id) || !!asked,
-    status: visit ? `bertanya ke ${visit.toName}…` : asked ? `menjawab pertanyaan ${agentOf(asked[0])?.name ?? "rekan"}…` : last?.pending ? last.status : null,
+    busy: busy.has(id) || !!asked || !!writing,
+    status: visit ? `bertanya ke ${visit.toName}…` : handoff ? `menyerahkan hasil ke ${agentOf(handoff)?.name ?? "rekan"}…` : asked ? `menjawab pertanyaan ${agentOf(asked[0])?.name ?? "rekan"}…` : writing ?? (last?.pending ? last.status : null),
     selected: state.current === id,
-    visit: visit?.to ?? null,
+    visit: visit?.to ?? handoff,
   };
 }
 function officeMessage(html) { const st = $("of-state"); st.replaceChildren(...html); st.classList.remove("hidden"); }
@@ -1046,10 +1207,35 @@ async function startOffice() {
 }
 function setView(view) {
   officeOn = view === "office";
+  projectOn = view === "project";
   $("app").classList.toggle("office-mode", officeOn);
-  try { history.replaceState(null, "", officeOn ? "#kantor" : location.pathname + location.search); } catch {}
+  $("app").classList.toggle("project-mode", projectOn);
+  try { history.replaceState(null, "", officeOn ? "#kantor" : projectOn ? "#proyek" : location.pathname + location.search); } catch {}
   if (officeOn) { startOffice(); renderRoster(); } else office?.stop();
+  if (projectOn) openProject();
+  if (view === "chat") closeDoc();
+  paintModes();
   paintOfficeTools();
+}
+// the mode switcher: the same three buttons in the chat list and in the top bars of the office and the project screen
+const ICON_MODES = {
+  chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  office: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>',
+  project: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>',
+};
+const MODE_LABELS = { chat: "Obrolan", office: "Kantor", project: "Proyek" };
+for (const nav of document.querySelectorAll("[data-modes]")) {
+  for (const mode of ["chat", "office", "project"]) {
+    const b = el("button"); b.type = "button"; b.dataset.mode = mode; b.title = { chat: "Daftar obrolan", office: "Kantor virtual: lihat tim bekerja", project: "Proyek tim: beri satu tujuan" }[mode];
+    b.innerHTML = ICON_MODES[mode]; // constant markup
+    b.append(el("span", null, MODE_LABELS[mode]));
+    b.onclick = () => setView(mode);
+    nav.append(b);
+  }
+}
+function paintModes() {
+  const now = officeOn ? "office" : projectOn ? "project" : "chat";
+  for (const b of document.querySelectorAll("[data-modes] button")) { const on = b.dataset.mode === now; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
 }
 const AREA = (a) => a.about.split(" · ")[0];
 let rosterBuilt = false;
@@ -1082,6 +1268,7 @@ function paintOfficeTools() {
   $("of-theme").innerHTML = dark ? ICON_SUN : ICON_MOON; // constant markup
   $("of-theme").title = dark ? "Ganti ke tema terang" : "Ganti ke tema gelap";
   $("of-theme").setAttribute("aria-label", $("of-theme").title);
+  $("pj-theme").innerHTML = $("of-theme").innerHTML; $("pj-theme").title = $("of-theme").title; $("pj-theme").setAttribute("aria-label", $("of-theme").title);
   const paused = !!office?.paused;
   $("of-pause").innerHTML = paused ? ICON_PLAY : ICON_PAUSE;
   $("of-pause").title = paused ? "Lanjutkan gerakan" : "Jeda gerakan";
@@ -1089,22 +1276,54 @@ function paintOfficeTools() {
   $("of-pause").setAttribute("aria-pressed", String(paused));
   office?.setMode(dark ? "night" : "day");
 }
-$("of-enter").onclick = () => setView("office");
-$("of-exit").onclick = () => { closeDoc(); setView("chat"); };
 $("of-zin").onclick = () => office?.zoom(0.82);
 $("of-zout").onclick = () => office?.zoom(1 / 0.82);
 $("of-reset").onclick = () => office?.resetView();
 $("of-pause").onclick = () => { if (office) { office.setPaused(!office.paused); paintOfficeTools(); } };
 $("of-theme").onclick = () => $("theme").click();
+$("pj-theme").onclick = () => $("theme").click();
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && officeOn && state.current && !docView && !e.defaultPrevented) $("back").click(); });
-addEventListener("hashchange", () => setView(location.hash === "#kantor" ? "office" : "chat"));
+addEventListener("hashchange", () => setView(location.hash === "#kantor" ? "office" : location.hash === "#proyek" ? "project" : "chat"));
 officeReady = true;
+paintModes();
 paintOfficeTools();
 // </office>
+
+// <project>
+// Team projects (project/*.js, src/team.js): a goal goes through a playbook, one professional per step. The screen is loaded when first opened.
+const teamBusy = new Map();   // agent id -> what they are writing, while a team project has them on a step
+const teamVisits = new Map(); // agent id -> who they are handing their finished step to, for a few seconds
+const downloadText = (name, text) => {
+  const a = el("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/markdown" })); a.download = name;
+  a.click(); URL.revokeObjectURL(a.href);
+};
+async function openProject() {
+  if (projectView) { projectView.show(); return; }
+  try {
+    const { createProjectView } = await import("./project/view.js");
+    projectView = createProjectView({ host: $("pj-body"), deps: {
+      el, agentOf, paintAvatar, openDoc, closeDoc, openChat: (id) => open(id), proxy: PROXY, getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
+      download: downloadText,
+      team: {
+        busy: (id, text) => { if (text) teamBusy.set(id, text); else teamBusy.delete(id); },
+        visit: (from, to) => { teamVisits.set(from, to); setTimeout(() => { if (teamVisits.get(from) === to) teamVisits.delete(from); }, 5000); },
+      },
+    } });
+    if (projectOn) projectView.show();
+  } catch (e) {
+    const retry = el("button", "of-retry", "Coba lagi"); retry.type = "button"; retry.onclick = () => openProject();
+    $("pj-body").replaceChildren(Object.assign(el("div", "of-state"), {})); $("pj-body").firstChild.append(el("b", null, "Proyek tidak bisa dimuat"), el("span", null, String(e?.message ?? e)), retry);
+  }
+}
+$("pj-new").onclick = () => projectView?.newProject();
+// </project>
 
 if (!chatById(state.current)) state.current = null;
 renderList(); renderChat();
 if (location.hash === "#kantor") setView("office");
+else if (location.hash === "#proyek") setView("project");
+else paintModes();
 </script>
 </body>
 </html>
