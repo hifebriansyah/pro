@@ -22,4 +22,4 @@ export async function quranChat(question, { signal, baseUrl = QURAN_URL, retries
   throw lastError;
 }
 
-export const PROVIDERS = ["islam", "quran"];
+export const PROVIDERS = ["islam", "quran", "deepseek"]; // deepseek: src/deepseek.js

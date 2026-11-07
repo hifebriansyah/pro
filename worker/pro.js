@@ -14,6 +14,7 @@
 import { MAX_BODY, parseAgentBody, runAgent } from "../src/serve.js";
 import { skillsFromList } from "../src/skills.js";
 import { handlePublish, servePage } from "./publish.js";
+import { runDeepseek } from "../src/deepseek.js";
 
 // Filled in by tools/deploy_worker.py from skills/*/SKILL.md: [{name, description, triggers, body}]
 const SKILLS = __SKILLS__;
@@ -26,6 +27,14 @@ function logLine(env, ctx, event) {
     headers: { Authorization: `Bearer ${env.AXIOM_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify([{ _time: new Date().toISOString(), worker: "pro", ...event }]),
   }).catch(() => {}));  // a lost log line never breaks an answer
+}
+
+// The same length-independent comparison as sameSecret in src/backend.js (not imported: that would pull the team code into the Worker).
+function sameSecret(a, b) {
+  const x = String(a ?? ""), y = String(b ?? "");
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x.charCodeAt(i) || 0) ^ (y.charCodeAt(i) || 0);
+  return diff === 0;
 }
 
 const MAX_TEAM_BODY = 150_000; // a project: the goal and the finished work of earlier steps (src/team.js LIMITS.body)
@@ -74,6 +83,20 @@ export default {
 
     // a published page is for anybody (no origin check): it is served sandboxed, see worker/publish.js
     if (request.method === "GET" && u.pathname.startsWith("/p/")) return (await servePage(u.pathname, env)) || new Response("not found", { status: 404 });
+    // POST /llm {prompt} -> {text}: DeepSeek for the backend (src/deepseek.js), through the AI binding and the gateway (paid from credit, never neurons).
+    // Server to server: no origin, only the shared secret.
+    if (u.pathname === "/llm" && request.method === "POST") {
+      if (!env.AI || !env.BACKEND_SECRET || !sameSecret(request.headers.get("x-pro-secret"), env.BACKEND_SECRET)) return reply({ error: "unauthorized" }, 401);
+      const { prompt } = await request.json().catch(() => ({}));
+      if (typeof prompt !== "string" || !prompt.trim()) return reply({ error: "need JSON {prompt}" }, 400);
+      try {
+        const text = await runDeepseek(env.AI, prompt);
+        logLine(env, ctx, { ...who, kind: "llm", chars: text.length, ms: Date.now() - started });
+        return new Response(JSON.stringify({ text }), { headers: { "Content-Type": "application/json" } });
+      } catch (e) {
+        return reply({ error: String(e?.message || e).slice(0, 200) }, 502);
+      }
+    }
     if (request.method === "OPTIONS") return new Response(null, { status: originOk ? 204 : 403, headers: cors });
     if (!originOk) return reply({ error: "forbidden" }, 403);
     const team = u.pathname === "/team";

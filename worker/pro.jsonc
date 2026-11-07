@@ -26,6 +26,9 @@
   // Without it the search is DuckDuckGo, then Wikipedia.
   // A question is 1 to 4 calls to islam-gpt.org plus a search: at most 6 a minute from one IP address, and 60 a minute for everybody together.
   // Published pages (POST /publish, GET /p/<id>/; worker/publish.js): one folder per project in this R2 bucket, bound as SITES.
+  // DeepSeek (src/deepseek.js, POST /llm): Workers AI, always called with the AI Gateway "pro", whose Workers AI billing is "unified": paid from the
+  // account's credit, never with neurons.
+  "ai": { "binding": "AI" },
   "r2_buckets": [{ "binding": "SITES", "bucket_name": "pro" }],
   "ratelimits": [
     { "name": "LIMITER", "namespace_id": "3101", "simple": { "limit": 6, "period": 60 } },

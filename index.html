@@ -430,7 +430,7 @@
   <aside class="side">
     <header>
       <h1>Chat</h1>
-      <select id="provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
+      <select id="provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option><option value="deepseek">DeepSeek</option></select>
       <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema"></button>
     </header>
     <nav class="modes" data-modes aria-label="Tampilan"></nav>
@@ -461,7 +461,7 @@
       <nav class="modes inbar" data-modes aria-label="Tampilan"></nav>
       <div class="of-title"><b>Proyek Tim</b><span id="pj-sub">Beri satu tujuan, tim mengerjakannya bersama</span></div>
       <div class="of-tools">
-        <select id="pj-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
+        <select id="pj-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option><option value="deepseek">DeepSeek</option></select>
         <button class="icon-btn" id="pj-new" type="button" title="Proyek baru" aria-label="Proyek baru"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
         <button class="icon-btn" id="pj-theme" type="button"></button>
       </div>
@@ -565,8 +565,9 @@ const PROXY = (() => {
     return localStorage.getItem("islam-chat:proxy") || WORKER;
   } catch { return WORKER; }
 })();
-let provider = "islam";   // the answer source: islam-gpt.org, or quran-gpt.netlify.app (only through the Worker: it does not allow other origins)
-try { provider = localStorage.getItem("islam-chat:provider") === "quran" ? "quran" : "islam"; } catch {}
+const PROVIDERS = ["islam", "quran", "deepseek"];
+let provider = "islam";   // the answer source: islam-gpt.org, quran-gpt.netlify.app or DeepSeek (those two only through the Worker: quran-gpt allows no other origin, DeepSeek runs there)
+try { const saved = localStorage.getItem("islam-chat:provider"); if (PROVIDERS.includes(saved)) provider = saved; } catch {}
 let webOn = false;
 try { webOn = localStorage.getItem("islam-chat:web") === "1"; } catch {}
 // an anonymous id for this browser, made once
@@ -1060,7 +1061,7 @@ async function sendMessage(text) {
   if (!c || busy.has(c.id) || !text.trim()) return;
   const persona = await loadPersona(agentOf(c.id));
   // with internet on, the proxy gets the persona separately so it can restate it after every tool result
-  const useWorker = webOn || provider === "quran";
+  const useWorker = webOn || provider !== "islam";
   const prompt = withHistory(c, text.trim(), useWorker ? "" : persona);
   const now = Date.now();
   c.messages.push({ role: "user", text: text.trim(), t: now });
@@ -1156,7 +1157,7 @@ const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title
 let providerChosen = false;
 try { providerChosen = localStorage.getItem("islam-chat:provider") !== null; } catch {}
 function setProvider(v) {
-  provider = v === "quran" ? "quran" : "islam";
+  provider = PROVIDERS.includes(v) ? v : "islam";
   providerChosen = true;
   try { localStorage.setItem("islam-chat:provider", provider); } catch {}
   $("provider").value = provider; $("pj-provider").value = provider; // the chat list and the project screen show the same choice
