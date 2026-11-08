@@ -74,7 +74,7 @@ async function call(ai, m, prompt, effort, retry = false) {
     reasoning_effort: effort,
     ...m.options,
     ...(effort === "none" ? { chat_template_kwargs: { thinking: false } } : {}),
-  }, { gateway: { id: GATEWAY_ID, metadata: callMetadata(prompt, effort, retry) } });
+  }, { gateway: { id: GATEWAY_ID }, extraHeaders: { "cf-aig-metadata": JSON.stringify(callMetadata(prompt, effort, retry)) } });  // the binding has no metadata option: the gateway reads this header
   const text = out?.choices?.[0]?.message?.content ?? out?.response ?? "";
   return typeof text === "string" ? text.trim() : "";
 }

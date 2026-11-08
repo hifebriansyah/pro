@@ -10,7 +10,8 @@ test("workers ai: every model is called through the gateway (credit, never neuro
     const ai = { run: async (model, input, opts) => { calls.push({ model, input, opts }); return { choices: [{ message: { content: " Jakarta. " } }] }; } };
     assert.equal(await runModel(ai, which, "ibu kota?"), "Jakarta.");
     assert.equal(calls[0].model, MODELS[which].model);
-    assert.deepEqual(calls[0].opts, { gateway: { id: GATEWAY_ID, metadata: { effort: "none" } } });
+    assert.deepEqual(calls[0].opts.gateway, { id: GATEWAY_ID });
+    assert.deepEqual(JSON.parse(calls[0].opts.extraHeaders["cf-aig-metadata"]), { effort: "none" });
     assert.deepEqual(calls[0].input.messages, [{ role: "user", content: "ibu kota?" }]);
     assert.equal(calls[0].input.reasoning_effort, "none", "simple chat: no thinking");
     assert.deepEqual(calls[0].input.chat_template_kwargs, { thinking: false });
@@ -86,8 +87,8 @@ test("runModel: when thinking used up the budget and nothing was answered, it as
   assert.equal(calls[0].input.reasoning_effort, "low");
   assert.equal(calls[1].input.reasoning_effort, "none");
   assert.deepEqual(calls[1].input.chat_template_kwargs, { thinking: false });
-  assert.deepEqual(calls[0].opts.gateway.metadata, { effort: "low", agent: "Kirana", task: "Halaman landing page" });
-  assert.equal(calls[1].opts.gateway.metadata.retry, true);
+  assert.deepEqual(JSON.parse(calls[0].opts.extraHeaders["cf-aig-metadata"]), { effort: "low", agent: "Kirana", task: "Halaman landing page" });
+  assert.equal(JSON.parse(calls[1].opts.extraHeaders["cf-aig-metadata"]).retry, true);
   // an empty answer with thinking already off is not retried; the metadata never carries the prompt
   calls.length = 0;
   const empty = { run: async (m, i, o) => { calls.push(1); return { choices: [{ message: { content: "" } }] }; } };
