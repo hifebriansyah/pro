@@ -363,3 +363,14 @@ test("the website's structure is not ours: the brief decides the sections for th
   assert.match(task("qa"), /the brief's sections in its order \(and no unrelated template sections\)/);
   for (const id of ["copy", "page", "build"]) assert.doesNotMatch(task(id), /three realistic testimonials|five FAQ|the benefit section|services or prices, testimonials, the FAQ/, `${id} carries no fixed section list`);
 });
+
+test("buildStepPrompt: the designer's page has a size cap even for DeepSeek, and may not write JavaScript", () => {
+  const pb = PLAYBOOKS.website;
+  for (const roomy of [false, true]) {
+    const p = buildStepPrompt({ step: stepById(pb, "page"), goal: "Landing page kalkulator", results: new Map(), persona: personas.get("designer"), skill: "", playbook: pb, roomy });
+    assert.match(p, /Write NO JavaScript at all/);
+    assert.match(p, new RegExp(`under about ${roomy ? "16,000" : "8,000"} characters`));
+  }
+  const build = buildStepPrompt({ step: stepById(pb, "build"), goal: "x", results: new Map(), persona: personas.get("engineer"), skill: "", playbook: pb, roomy: true });
+  assert.doesNotMatch(build, /Write NO JavaScript at all/);
+});
