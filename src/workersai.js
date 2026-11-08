@@ -59,20 +59,39 @@ export function reasoningEffort(prompt) {
   return "none";
 }
 
-/** One call through the AI binding and the gateway (the Worker side of /llm, and the Worker's own fallback). which: a key of MODELS. */
-export async function runModel(ai, which, prompt) {
-  const m = MODELS[which];
-  if (!m) throw new Error(`unknown model ${which}`);
-  const effort = reasoningEffort(prompt);
+/** What the gateway log should say about a call, so cost can be read per kind of work (never the prompt itself): the effort, the agent and the step. */
+export function callMetadata(prompt, effort, retry = false) {
+  const s = String(prompt);
+  const agent = /You are (\p{Lu}\p{L}+)[,.]/u.exec(s)?.[1];
+  const task = /YOUR TASK: ([^\n]{1,60})/.exec(s)?.[1]?.trim();
+  return { effort, ...(agent ? { agent } : {}), ...(task ? { task } : {}), ...(retry ? { retry: true } : {}) };
+}
+
+async function call(ai, m, prompt, effort, retry = false) {
   const out = await ai.run(m.model, {
     messages: [{ role: "user", content: String(prompt).slice(0, MAX_PROMPT) }],
     max_tokens: MAX_TOKENS,
     reasoning_effort: effort,
     ...m.options,
     ...(effort === "none" ? { chat_template_kwargs: { thinking: false } } : {}),
-  }, { gateway: { id: GATEWAY_ID } });
+  }, { gateway: { id: GATEWAY_ID, metadata: callMetadata(prompt, effort, retry) } });
   const text = out?.choices?.[0]?.message?.content ?? out?.response ?? "";
   return typeof text === "string" ? text.trim() : "";
+}
+
+/**
+ * One call through the AI binding and the gateway (the Worker side of /llm, and the Worker's own fallback). which: a key of MODELS.
+ * When thinking used up the whole budget and nothing was answered, it asks again one step lower (high, low, none): the last step has no thinking, so it does answer.
+ */
+export async function runModel(ai, which, prompt) {
+  const m = MODELS[which];
+  if (!m) throw new Error(`unknown model ${which}`);
+  const effort = reasoningEffort(prompt);
+  // one step down at a time (high -> low -> none), so an SVG or a Markdown document keeps as much thinking as still fits and always gets an answer
+  const ladder = { high: "low", low: "none" };
+  let text = await call(ai, m, prompt, effort);
+  for (let next = ladder[effort]; !text && next; next = ladder[next]) text = await call(ai, m, prompt, next, true);
+  return text;
 }
 
 /**

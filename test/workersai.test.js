@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AI_PROVIDERS, GATEWAY_ID, MODELS, aiChat, reasoningEffort, runModel } from "../src/workersai.js";
+import { AI_PROVIDERS, GATEWAY_ID, MODELS, aiChat, callMetadata, reasoningEffort, runModel } from "../src/workersai.js";
 import { parseAgentBody } from "../src/serve.js";
 
 test("workers ai: every model is called through the gateway (credit, never neurons), with reasoning effort chosen by content type", async () => {
@@ -10,7 +10,7 @@ test("workers ai: every model is called through the gateway (credit, never neuro
     const ai = { run: async (model, input, opts) => { calls.push({ model, input, opts }); return { choices: [{ message: { content: " Jakarta. " } }] }; } };
     assert.equal(await runModel(ai, which, "ibu kota?"), "Jakarta.");
     assert.equal(calls[0].model, MODELS[which].model);
-    assert.deepEqual(calls[0].opts, { gateway: { id: GATEWAY_ID } });
+    assert.deepEqual(calls[0].opts, { gateway: { id: GATEWAY_ID, metadata: { effort: "none" } } });
     assert.deepEqual(calls[0].input.messages, [{ role: "user", content: "ibu kota?" }]);
     assert.equal(calls[0].input.reasoning_effort, "none", "simple chat: no thinking");
     assert.deepEqual(calls[0].input.chat_template_kwargs, { thinking: false });
@@ -75,4 +75,34 @@ test("deepseek is an answer source the agent accepts; qwen is not any more", () 
   assert.equal(parseAgentBody(JSON.stringify({ question: "q", provider: "deepseek" })).provider, "deepseek");
   assert.equal(parseAgentBody(JSON.stringify({ question: "q", provider: "qwen" })).provider, "islam", "a removed source falls back to the default");
   assert.equal(parseAgentBody(JSON.stringify({ question: "q", provider: "other" })).provider, "islam");
+});
+
+test("runModel: when thinking used up the budget and nothing was answered, it asks once more with thinking off; the gateway log says the effort, agent and step", async () => {
+  const calls = [];
+  const ai = { run: async (model, input, opts) => { calls.push({ input, opts }); return { choices: [{ message: { content: calls.length === 1 ? "" : " Jawaban. " }, finish_reason: calls.length === 1 ? "length" : "stop" }] }; } };
+  const prompt = 'PROJECT MODE: you are not chatting now.\n\nYou are Kirana, UI / UX Designer, working in a team.\n\nYOUR TASK: Halaman landing page\nBuild it.\n1. Write the deliverable as ONE <mockup title="...">';
+  assert.equal(await runModel(ai, "deepseek", prompt), "Jawaban.");
+  assert.equal(calls.length, 2, "one retry, not a loop");
+  assert.equal(calls[0].input.reasoning_effort, "low");
+  assert.equal(calls[1].input.reasoning_effort, "none");
+  assert.deepEqual(calls[1].input.chat_template_kwargs, { thinking: false });
+  assert.deepEqual(calls[0].opts.gateway.metadata, { effort: "low", agent: "Kirana", task: "Halaman landing page" });
+  assert.equal(calls[1].opts.gateway.metadata.retry, true);
+  // an empty answer with thinking already off is not retried; the metadata never carries the prompt
+  calls.length = 0;
+  const empty = { run: async (m, i, o) => { calls.push(1); return { choices: [{ message: { content: "" } }] }; } };
+  assert.equal(await runModel(empty, "deepseek", "halo"), "");
+  assert.equal(calls.length, 1);
+  assert.deepEqual(callMetadata("halo", "none"), { effort: "none" });
+});
+
+test("runModel: Markdown and SVG (high) step down to low before thinking is switched off", async () => {
+  const efforts = [];
+  const ai = { run: async (m, input) => { efforts.push(input.reasoning_effort); return { choices: [{ message: { content: efforts.length < 3 ? "" : "# Dokumen" } }] }; } };
+  assert.equal(await runModel(ai, "deepseek", 'PROJECT MODE: you are not chatting now.\n1. Write the deliverable as ONE <document title="...">'), "# Dokumen");
+  assert.deepEqual(efforts, ["high", "low", "none"]);
+  efforts.length = 0;
+  const first = { run: async (m, input) => { efforts.push(input.reasoning_effort); return { choices: [{ message: { content: "ok" } }] }; } };
+  await runModel(first, "deepseek", 'PROJECT MODE: you are not chatting now.\n1. Write the deliverable as ONE <document title="...">');
+  assert.deepEqual(efforts, ["high"], "an answer is never asked for twice");
 });
