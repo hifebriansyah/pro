@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AI_PROVIDERS, GATEWAY_ID, MODELS, aiChat, runModel } from "../src/workersai.js";
+import { AI_PROVIDERS, GATEWAY_ID, MODELS, aiChat, reasoningEffort, runModel } from "../src/workersai.js";
 import { parseAgentBody } from "../src/serve.js";
 
-test("workers ai: every model is called through the gateway (credit, never neurons), with its thinking off", async () => {
+test("workers ai: every model is called through the gateway (credit, never neurons), with reasoning effort chosen by content type", async () => {
   assert.deepEqual(AI_PROVIDERS, ["deepseek"], "Qwen was removed: too slow for a whole page");
   for (const which of AI_PROVIDERS) {
     const calls = [];
@@ -12,10 +12,46 @@ test("workers ai: every model is called through the gateway (credit, never neuro
     assert.equal(calls[0].model, MODELS[which].model);
     assert.deepEqual(calls[0].opts, { gateway: { id: GATEWAY_ID } });
     assert.deepEqual(calls[0].input.messages, [{ role: "user", content: "ibu kota?" }]);
-    assert.ok(calls[0].input.chat_template_kwargs, "thinking is switched off");
+    assert.equal(calls[0].input.reasoning_effort, "none", "simple chat: no thinking");
+    assert.deepEqual(calls[0].input.chat_template_kwargs, { thinking: false });
+
+    await runModel(ai, which, 'Skill "mockup-html" applies to this request, follow it:\n...\n\nUser question: Buatkan logo P-R-O dengan SVG');
+    assert.equal(calls[1].input.reasoning_effort, "high", "SVG / logo: high reasoning");
+    assert.equal(calls[1].input.chat_template_kwargs, undefined);
+
+    await runModel(ai, which, 'Skill "writing-md" applies to this request, follow it:\n...\n\nUser question: Buatkan PRD login');
+    assert.equal(calls[2].input.reasoning_effort, "high", "Markdown document: high reasoning");
+
+    await runModel(ai, which, 'Skill "mockup-html" applies to this request, follow it:\n...\n\nUser question: Buatkan landing page kedai kopi');
+    assert.equal(calls[3].input.reasoning_effort, "low", "full website / landing page: low reasoning");
+    assert.equal(calls[3].input.chat_template_kwargs, undefined);
+
     assert.deepEqual(await aiChat(which)("x", { env: { AI: ai } }), { text: "Jakarta.", references: [] });
   }
   await assert.rejects(runModel({ run: async () => ({}) }, "other", "q"), /unknown model/);
+});
+
+test("reasoningEffort: SVG and Markdown get high, websites get low, simple chat and follow-ups get none", () => {
+  const catalogue = "Skills (call load_skill):\n- mockup-html: Design a screen as HTML or a logo as SVG\n- writing-md: Write a deliverable as a Markdown document\n\n";
+  // Simple chat & follow-ups (even when the skill catalogue or earlier chat history mentions SVG / website / Markdown)
+  assert.equal(reasoningEffort(catalogue + "User question: Halo, apa kabar?"), "none");
+  assert.equal(reasoningEffort(catalogue + "User question: Earlier in this chat (background only, do not mention it):\nUser: Buatkan logo SVG\nRaka: Ini mockup-nya\n\nUser's new message: Terima kasih!\n\n(Reply in the language of the user's message just above.)"), "none");
+
+  // SVG / Icons / Logos -> high
+  assert.equal(reasoningEffort(catalogue + 'Skill "mockup-html" applies to this request, follow it:\n...\n\nUser question: Buatkan ikon keranjang belanja'), "high");
+  assert.equal(reasoningEffort("You are inside a <mockup> (HTML or SVG).\n\nREQUEST:\nbikin logo\n\nTHE END OF WHAT YOU HAVE WRITTEN SO FAR:\n<<<\n<svg viewBox=\"0 0 200 200\"><circle cx=\"100\" "), "high");
+
+  // Markdown Documents -> high
+  assert.equal(reasoningEffort(catalogue + 'Skill "writing-md" applies to this request, follow it:\n...\n\nUser question: Susun test plan pembayaran'), "high");
+  assert.equal(reasoningEffort(catalogue + 'User question: Buat catatan rapat\n\nYou called load_skill {"name":"writing-md"}. Result:\n# Writing'), "high");
+  assert.equal(reasoningEffort("You are inside a <document> (Markdown).\n\nREQUEST:\nPRD"), "high");
+  assert.equal(reasoningEffort('PROJECT MODE: you are not chatting now.\n1. Write the deliverable as ONE <document title="...">...Markdown...</document>.'), "high");
+
+  // Websites / Landing Pages / Mockups -> low
+  assert.equal(reasoningEffort(catalogue + 'Skill "mockup-html" applies to this request, follow it:\n...\n\nUser question: Buatkan halaman dashboard kasir'), "low");
+  assert.equal(reasoningEffort('PROJECT MODE: you are not chatting now.\n1. Write the deliverable as ONE <mockup title="...">...a complete HTML page...</mockup>.'), "low");
+  assert.equal(reasoningEffort('PROJECT MODE: you are not chatting now.\nDo NOT send the whole file back\n4. <document title="script.js">...the complete JavaScript'), "low");
+  assert.equal(reasoningEffort("You are inside a <mockup> (HTML or SVG).\n\nREQUEST:\nlanding page\n\nTHE END OF WHAT YOU HAVE WRITTEN SO FAR:\n<<<\n<!doctype html><html><body>"), "low");
 });
 
 test("workers ai: without a binding it asks the Worker's /llm with the shared secret and the model; a refusal is not retried", async (t) => {

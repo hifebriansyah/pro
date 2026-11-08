@@ -5,8 +5,7 @@
 // Same shape as chatBuffered in islam.js ({text, references}), so the agent, the tools and the continuation of cut-off answers work on it unchanged.
 // These models have no one-minute limit and a large context, so a team project runs them without the free sources' workarounds (src/team.js roomy).
 export const MODELS = {
-  // no thinking: even at reasoning_effort "low" DeepSeek sometimes thought through the whole budget (28,000 characters) and answered nothing
-  deepseek: { model: "@cf/deepseek-ai/deepseek-v4.1-flash-1017", options: { chat_template_kwargs: { thinking: false } } },
+  deepseek: { model: "@cf/deepseek-ai/deepseek-v4.1-flash-1017", options: {} },
   // Qwen3.8 27B was tried and removed: a dense 27B model writes about 130 characters a second (DeepSeek: about 400), so a whole landing page ran past Workers AI's
   // two-minute request limit ("3046: Request timeout").
 };
@@ -16,14 +15,61 @@ export const LLM_URL = "https://pro-worker.situs.id/llm";
 const MAX_TOKENS = 16_000;     // about 50,000 characters: a whole landing page in one answer; a longer one is carried on by src/continue.js
 const MAX_PROMPT = 120_000;    // what /llm accepts
 
+const SVG_WORDS = /(?:^|[^\p{L}])(?:svg|logo|ikon|icon|ilustrasi|illustration|monogram|vektor|vector)(?![\p{L}])|<svg[\s>]/iu;
+const MD_WORDS = /(?:^|[^\p{L}])(?:markdown|prd|brd|dokumen|document|laporan|report|panduan|guide|proposal|spesifikasi|specification|test plan|test cases?|user stor(?:y|ies)|content calendar|kalender konten|rangkuman|ringkasan)(?![\p{L}])|<document[\s>]/iu;
+const WEB_WORDS = /(?:^|[^\p{L}])(?:website|situs|web|landing page|mockup|mock-up|mock up|wireframe|prototipe|prototype|dashboard|halaman|page|aplikasi|app|layout|antarmuka|ui|ux)(?![\p{L}])|<mockup[\s>]|<!doctype html/iu;
+
+/** The user's current request inside an agent, continuation or direct prompt (ignoring the tool/skill catalogue at the top and earlier chat turns). */
+function activeRequest(prompt) {
+  const s = String(prompt);
+  const turn = s.lastIndexOf("User's new message:");
+  if (turn !== -1) return s.slice(turn + 19).split(/\n\n(?:\(Reply in the language|You called )/)[0];
+  const first = s.lastIndexOf("User's first message:");
+  if (first !== -1) return s.slice(first + 21).split(/\n\n(?:\(Reply in the language|You called )/)[0];
+  const q = s.lastIndexOf("User question:");
+  if (q !== -1) return s.slice(q + 14).split("\n\nYou called ")[0];
+  return s;
+}
+
+/**
+ * Reasoning effort by content type:
+ * - "high" for SVG / icons / logos (short output, needs coordinate math) and Markdown documents (structure and depth)
+ * - "low"  for full websites / landing pages / HTML mockups (plans layout without hitting the two-minute timeout)
+ * - "none" for simple chat and follow-ups (fast and free of thinking tokens)
+ */
+export function reasoningEffort(prompt) {
+  const s = String(prompt);
+  if (s.includes("You are inside a <document> (Markdown).")) return "high";
+  if (s.includes("You are inside a <mockup> (HTML or SVG).")) {
+    const tail = s.slice(s.indexOf("REQUEST:"));
+    return SVG_WORDS.test(tail) && !/<!doctype|<html[\s>]/i.test(tail) ? "high" : "low";
+  }
+  if (s.includes("You are inside a fenced code block.")) return "low";
+  if (s.includes("PROJECT MODE: you are not chatting now.")) {
+    return s.includes('Write the deliverable as ONE <document title="') ? "high" : "low";
+  }
+  const req = activeRequest(s);
+  const hasMockup = s.includes('Skill "mockup-html" applies to this request') || s.includes('You called load_skill {"name":"mockup-html"}');
+  const hasMd = s.includes('Skill "writing-md" applies to this request') || s.includes('You called load_skill {"name":"writing-md"}');
+  if (SVG_WORDS.test(req)) return "high";
+  if (hasMd && (!hasMockup || MD_WORDS.test(req))) return "high";
+  if (hasMockup) return "low";
+  if (MD_WORDS.test(req)) return "high";
+  if (WEB_WORDS.test(req)) return "low";
+  return "none";
+}
+
 /** One call through the AI binding and the gateway (the Worker side of /llm, and the Worker's own fallback). which: a key of MODELS. */
 export async function runModel(ai, which, prompt) {
   const m = MODELS[which];
   if (!m) throw new Error(`unknown model ${which}`);
+  const effort = reasoningEffort(prompt);
   const out = await ai.run(m.model, {
     messages: [{ role: "user", content: String(prompt).slice(0, MAX_PROMPT) }],
     max_tokens: MAX_TOKENS,
+    reasoning_effort: effort,
     ...m.options,
+    ...(effort === "none" ? { chat_template_kwargs: { thinking: false } } : {}),
   }, { gateway: { id: GATEWAY_ID } });
   const text = out?.choices?.[0]?.message?.content ?? out?.response ?? "";
   return typeof text === "string" ? text.trim() : "";
