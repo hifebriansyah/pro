@@ -123,6 +123,7 @@ Each professional has a photo, `personas/<name>.jpg` (256x256), shown round in t
 - Needs Pillow and an SVG renderer that supports masks and filters: macOS Quick Look (built in, used first), else `rsvg-convert` or `cairosvg`. ImageMagick's built-in renderer draws nothing for this logo.
 - The tagline is the same everywhere (description, share tags, manifest, the picture, `TAGLINE` in `make_icons.py`) and a test fails if one of them drifts.
 - **Cache busting:** every icon address carries `?v=<hash of the file>`. `tools/stamp_icons.py` (standard library only) sets it: `make_icons.py` runs it on the repo files, and the Pages workflow runs it on the published copy on every deploy. A test fails when the repo's pages hold a stale hash.
+- **Cache busting for the scripts:** Cloudflare keeps the `.js` files in the browser for hours while `index.html` is fetched fresh, so a visitor could run a new page with old modules. The Pages workflow runs `tools/stamp_modules.py _site` on the published copy only (never the repo: the node tests and the backend import the plain names), which puts `?v=<hash>` on every relative import in `index.html` and the modules. The hash is taken after a file's own imports are stamped, so a change deep in the tree changes the address of every module above it. Tested in `test/stamp-modules.test.js`.
 - The share image uses macOS's Helvetica Neue Thin for the tagline: regenerate it on a Mac.
 
 ## Palette

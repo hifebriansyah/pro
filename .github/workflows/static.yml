@@ -43,6 +43,8 @@ jobs:
           cp src/discuss.js _site/src/
       - name: Version the icon addresses (cache busting)
         run: python3 tools/stamp_icons.py _site
+      - name: Version the module imports (cache busting)
+        run: python3 tools/stamp_modules.py _site
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
