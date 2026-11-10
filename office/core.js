@@ -40,6 +40,7 @@ export const LOOKS = {
   community: { skin: "#c99a6e", hair: "#17171a", style: "short", jacket: "#243b66", inner: "#243b66", pants: "#2f3342" },
   copywriter: { skin: "#c08a5f", hair: "#2a1c16", style: "wavy", jacket: "#9a4a2a", inner: "#6b7280", pants: "#2b3445", female: true },
   analyst: { skin: "#d4a373", hair: "#17171a", style: "short", jacket: "#1e2f55", inner: "#1e2f55", pants: "#2f3342" },
+  coordinator: { skin: "#d4a373", hair: "#1f2937", style: "short", jacket: "#0f766e", inner: "#f8fafc", pants: "#1e293b", glasses: true },
 };
 
 // ---- the furniture. block is the footprint people cannot walk through (true: the item's own box; or a rectangle; false: you can walk over it).
@@ -56,37 +57,44 @@ export const FURNITURE = [
   item("armchair", 7.0, -7.2, 0.95, 0.95, { face: "e" }),
   item("armchair", 13.8, -7.2, 0.95, 0.95, { face: "w" }),
   item("tv", 10.5, -9.85, 1.9, 0.1, { block: false }),
-  // meeting corner, south-west: a glass wall on the north side with a door gap, a long table, a whiteboard on the west wall
-  item("rug", -11, 6.1, 5.4, 3.6, { block: false, color: "#aab4c0" }),
+  // meeting room, south-west: glass walls on the north side with a doorway between them, two conference tables (16 seats, enough for all 13), whiteboard on the west wall
+  item("rug", -7.6, 6.5, 12.6, 4.2, { block: false, color: "#aab4c0" }),
   item("glass", -12.25, 3.4, 5.3, 0.1),
-  item("meetingtable", -11, 6.2, 3.4, 1.2, { block: box(-10.95, 6.2, 5.1, 2.5) }),
-  item("whiteboard", -14.9, 6.2, 0.1, 2.4, { block: false }),
+  item("glass", -4.15, 3.4, 5.3, 0.1),
+  item("meetingtable", -11, 6.5, 3.4, 1.2, { block: box(-11, 6.5, 4.4, 2.1) }),
+  item("meetingtable", -4.2, 6.5, 3.4, 1.2, { block: box(-4.2, 6.5, 4.4, 2.1) }),
+  item("whiteboard", -14.9, 6.5, 0.1, 2.4, { block: false }),
   item("shelf", -14.75, 2.2, 0.4, 1.8),
   // pantry and corners, south-east
   item("counter", 11.5, 5.8, 3.2, 0.9),
   item("cooler", 7.2, 3.3, 0.5, 0.5),
   item("printertable", 4.5, 3.2, 1.2, 0.6),
   // plants
-  ...[[7.0, -9.4], [14.3, -9.4], [-14.3, -9.4], [4.0, -9.4], [-0.5, 3.0], [6.0, 8.9], [14.3, 2.0], [-6.8, 9.0], [14.3, 9.2], [2.2, 0.8], [-5.2, 4.6]]
+  ...[[7.0, -9.4], [14.3, -9.4], [-14.3, -9.4], [4.0, -9.4], [-0.5, 3.0], [6.0, 8.9], [14.3, 2.0], [-7.6, 9.3], [14.3, 9.2], [2.2, 0.8], [1.8, 6.5]]
     .map(([x, z]) => item("plant", x, z, 0.6, 0.6)),
 ];
 export const furnitureBlocks = () => FURNITURE.filter((f) => f.block).map((f) => (f.block === true ? box(f.x, f.z, f.w, f.d) : f.block));
 
 // ---- places to go when there is nothing to do: where to stand or sit, how to face, and the spot you walk to first (approach)
-const seatsRow = (kind, xs, z, az, heading) => xs.map((x, i) => ({ id: `${kind}-${i + 1}`, kind, seat: { x, z }, approach: { x, z: az }, heading }));
+const seatsRow = (kind, xs, z, az, heading, start = 1) => xs.map((x, i) => ({ id: `${kind}-${start + i}`, kind, seat: { x, z }, approach: { x, z: az }, heading }));
 export const POIS = [
   ...seatsRow("sofa", [9.3, 10.5, 11.7], -8.8, -7.75, 0),
   { id: "armchair-1", kind: "armchair", seat: { x: 7.0, z: -7.2 }, approach: { x: 5.9, z: -7.2 }, heading: PI / 2 },
   { id: "armchair-2", kind: "armchair", seat: { x: 13.8, z: -7.2 }, approach: { x: 12.75, z: -7.2 }, heading: -PI / 2 },
-  ...seatsRow("meeting", [-12.2, -11, -9.8], 5.25, 4.2, 0),
-  { id: "meeting-4", kind: "meeting", seat: { x: -13.1, z: 6.2 }, approach: { x: -14.25, z: 6.75 }, heading: PI / 2 },
-  { id: "meeting-5", kind: "meeting", seat: { x: -8.9, z: 6.2 }, approach: { x: -7.8, z: 6.2 }, heading: -PI / 2 },
+  ...seatsRow("meeting", [-12.2, -11, -9.8], 5.55, 4.5, 0, 1),
+  { id: "meeting-4", kind: "meeting", seat: { x: -13.1, z: 6.5 }, approach: { x: -14.1, z: 6.5 }, heading: PI / 2 },
+  { id: "meeting-5", kind: "meeting", seat: { x: -8.9, z: 6.5 }, approach: { x: -7.9, z: 6.5 }, heading: -PI / 2 },
+  ...seatsRow("meeting", [-12.2, -11, -9.8], 7.45, 8.5, PI, 6),
+  ...seatsRow("meeting", [-5.4, -4.2, -3.0], 5.55, 4.5, 0, 9),
+  ...seatsRow("meeting", [-5.4, -4.2, -3.0], 7.45, 8.5, PI, 12),
+  { id: "meeting-15", kind: "meeting", seat: { x: -6.3, z: 6.5 }, approach: { x: -7.3, z: 6.5 }, heading: PI / 2 },
+  { id: "meeting-16", kind: "meeting", seat: { x: -2.1, z: 6.5 }, approach: { x: -1.1, z: 6.5 }, heading: -PI / 2 },
   ...[10.4, 11.6, 12.6].map((x, i) => ({ id: `coffee-${i + 1}`, kind: "coffee", stand: { x, z: 4.75 }, heading: 0 })),
   { id: "cooler-1", kind: "cooler", stand: { x: 7.2, z: 2.3 }, heading: 0 },
   { id: "printer-1", kind: "printer", stand: { x: 4.5, z: 2.3 }, heading: 0 },
   { id: "whiteboard-1", kind: "whiteboard", stand: { x: -14.25, z: 5.25 }, heading: -PI / 2 },
   { id: "shelf-1", kind: "shelf", stand: { x: -13.75, z: 2.2 }, heading: -PI / 2 },
-  ...[[-5.5, 3.8, 0.4], [-2.5, 6, -0.6], [0.8, 8.4, 2.4], [4.5, 6.8, 0.8], [-5.2, 8.2, 3.5], [3.2, 0.9, 1.2], [7, -3.6, -2.2], [-0.5, -0.2, 0.2], [10, 0.5, 2.8], [13, -1, -1.2], [8.8, 8.3, 0], [-9, 1.5, 1.5]]
+  ...[[-8.2, 2.2, 0.4], [1.5, 4.5, -0.6], [0.8, 8.4, 2.4], [4.5, 6.8, 0.8], [0.5, 5.5, 3.5], [3.2, 0.9, 1.2], [7, -3.6, -2.2], [-0.5, -0.2, 0.2], [10, 0.5, 2.8], [13, -1, -1.2], [8.8, 8.3, 0], [-9, 1.5, 1.5]]
     .map(([x, z, heading], i) => ({ id: `spot-${i + 1}`, kind: "stand", stand: { x, z }, heading })),
 ];
 // what each kind of place is for: the pose, how long people stay (seconds) and how likely it is to be picked
@@ -234,7 +242,7 @@ export function createSim({ ids, seed = 7, wander = true }) {
   const taken = new Map(); // place id -> who is there or on the way
   const events = [];
   const between = ([a, b]) => a + rng() * (b - a);
-  const desks = Object.fromEntries(ids.map((id) => [id, deskOf(id)]));
+  const desks = Object.fromEntries(ids.filter((id) => DESKS[id]).map((id) => [id, deskOf(id)]));
   let opened = false;
 
   const release = (a) => { if (a.poi && taken.get(a.poi) === a.id) taken.delete(a.poi); a.poi = null; };
@@ -269,10 +277,20 @@ export function createSim({ ids, seed = 7, wander = true }) {
   };
   const goDesk = (a) => {
     const d = desks[a.id];
+    if (!d) return goMeeting(a);
     release(a);
     a.poi = "desk:" + a.id;
     a.goal = "work";
     startRoute(a, d.approach, () => sitDown(a, d, a.poi, "type", Infinity));
+  };
+  const MEETING_SEATS = POIS.filter((p) => p.kind === "meeting");
+  const goMeeting = (a) => {
+    release(a);
+    const spot = MEETING_SEATS.find((p) => !taken.has(p.id)) ?? MEETING_SEATS[0];
+    taken.set(spot.id, a.id);
+    a.poi = spot.id;
+    a.goal = "meeting";
+    startRoute(a, spot.approach, () => sitDown(a, spot, spot.id, "talk", Infinity));
   };
 
   const choosePlace = (a) => {
@@ -335,22 +353,26 @@ export function createSim({ ids, seed = 7, wander = true }) {
 
     // 2. what to do next
     const visiting = inp.visit && inp.visit !== a.id && desks[inp.visit] ? inp.visit : null; // an answer in flight that needs a word with a colleague
-    if (inp.busy || visiting) {
-      const want = visiting ? "visit:" + visiting : "work";
+    const meeting = !!inp.meeting || (!desks[a.id] && !!inp.busy); // a group discussion has this specialist (or the coordinator) at the meeting room table
+    if (meeting || inp.busy || visiting) {
+      const want = meeting ? "meeting" : visiting ? "visit:" + visiting : "work";
       if (a.goal !== want) {
         const wasMoving = a.mode === "walk";
-        const go = () => (visiting ? goVisit(a, visiting) : goDesk(a));
+        const go = () => (meeting ? goMeeting(a) : visiting ? goVisit(a, visiting) : goDesk(a));
         a.goal = want; a.atPlace = false;
-        if (a.mode === "seated" && a.poi === "desk:" + a.id && !visiting) { /* already at the desk */ }
+        if (meeting && a.mode === "seated" && a.poi?.startsWith("meeting-")) { a.action = "talk"; a.timer = Infinity; }
+        else if (!meeting && !visiting && a.mode === "seated" && a.poi === "desk:" + a.id) { /* already at the desk */ }
         else if (a.mode === "seated") { release(a); a.poi = null; standUp(a, go); }
         else if (a.mode === "slideIn") { const keep = a.then; a.then = () => { keep?.(); release(a); standUp(a, go); }; }
         else if (a.mode === "walk" || a.mode === "stand") { if (wasMoving) a.path = []; go(); }
         else if (a.mode === "slideOut") { a.then = ((f) => () => { f?.(); go(); })(a.then); }
       }
-      if (visiting && a.mode === "stand" && a.atPlace) { a.action = "talk"; a.heading = turnToward(a.heading, a.faceTo ?? PI / 2, 5 * dt); }
-      if (!visiting && a.mode === "seated" && a.poi === "desk:" + a.id) a.action = "type";
+      if (meeting && a.mode === "seated" && a.poi?.startsWith("meeting-")) a.action = "talk";
+      if (!meeting && visiting && a.mode === "stand" && a.atPlace) { a.action = "talk"; a.heading = turnToward(a.heading, a.faceTo ?? PI / 2, 5 * dt); }
+      if (!meeting && !visiting && a.mode === "seated" && a.poi === "desk:" + a.id) a.action = "type";
       return;
     }
+    if (a.goal === "meeting") { a.goal = null; if (a.mode === "seated") a.timer = a.after || 2; } // the group discussion is over
     if (a.goal?.startsWith("visit:")) { release(a); a.goal = null; a.atPlace = false; a.timer = 0.6; a.action = "idle"; } // the visit is over
     if (a.goal === "work") { // the answer is done: stay at the desk a moment (the page shows "done"), then carry on
       a.goal = null;
@@ -383,14 +405,23 @@ export function createSim({ ids, seed = 7, wander = true }) {
     setWander(on) { state.wander = !!on; }, // off: everybody stays where they are (people at their desks still work)
     update(dt, inputs = {}, env = {}) {
       dt = Math.min(dt, 0.1);
-      if (!opened) { // the first look at the office (a refresh, or opening it for the first time): whoever is at work is already at their desk, not walking there
+      if (!opened) { // the first look at the office (a refresh, or opening it for the first time): whoever is at work or in a meeting is already seated there
         opened = true;
-        for (const a of agents.values()) if (inputs[a.id]?.busy && desks[a.id]) {
-          const d = desks[a.id];
-          release(a);
-          a.poi = "desk:" + a.id; a.goal = "work"; a.wasBusy = true; a.path = []; a.then = null; a.slide = null;
-          a.x = d.seat.x; a.z = d.seat.z; a.heading = d.heading; a.seatHeading = d.heading; a.approach = d.approach; a.sit = 1; a.speed = 0;
-          a.mode = "seated"; a.action = "type"; a.timer = Infinity; a.atPlace = true;
+        for (const a of agents.values()) {
+          if (inputs[a.id]?.meeting) {
+            release(a);
+            const spot = MEETING_SEATS.find((p) => !taken.has(p.id)) ?? MEETING_SEATS[0];
+            taken.set(spot.id, a.id);
+            a.poi = spot.id; a.goal = "meeting"; a.wasBusy = !!inputs[a.id]?.busy; a.path = []; a.then = null; a.slide = null;
+            a.x = spot.seat.x; a.z = spot.seat.z; a.heading = spot.heading; a.seatHeading = spot.heading; a.approach = spot.approach; a.sit = 1; a.speed = 0;
+            a.mode = "seated"; a.action = "talk"; a.timer = Infinity; a.atPlace = true;
+          } else if (inputs[a.id]?.busy && desks[a.id]) {
+            const d = desks[a.id];
+            release(a);
+            a.poi = "desk:" + a.id; a.goal = "work"; a.wasBusy = true; a.path = []; a.then = null; a.slide = null;
+            a.x = d.seat.x; a.z = d.seat.z; a.heading = d.heading; a.seatHeading = d.heading; a.approach = d.approach; a.sit = 1; a.speed = 0;
+            a.mode = "seated"; a.action = "type"; a.timer = Infinity; a.atPlace = true;
+          }
         }
       }
       for (const a of agents.values()) step(a, dt, inputs[a.id] ?? {}, env);

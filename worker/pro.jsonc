@@ -31,8 +31,8 @@
   "ai": { "binding": "AI" },
   "r2_buckets": [{ "binding": "SITES", "bucket_name": "pro" }],
   "ratelimits": [
-    { "name": "LIMITER", "namespace_id": "3101", "simple": { "limit": 6, "period": 60 } },
-    { "name": "LIMITER_ALL", "namespace_id": "3102", "simple": { "limit": 60, "period": 60 } },
+    { "name": "LIMITER", "namespace_id": "3101", "simple": { "limit": 30, "period": 60 } },
+    { "name": "LIMITER_ALL", "namespace_id": "3102", "simple": { "limit": 120, "period": 60 } },
     // a team project (POST /team) is a long run of many model calls: at most 3 starts a minute from one IP address
     { "name": "LIMITER_TEAM", "namespace_id": "3103", "simple": { "limit": 3, "period": 60 } },
     // publishing a page: at most 10 a minute from one IP address

@@ -24,6 +24,7 @@ const ICON = {
   globe: svg('<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>'),
   copy: svg('<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>'),
   alert: svg('<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>'),
+  send: svg('<path d="m3 3 3 9-3 9 19-9Z"/><path d="M6 12h16"/>'),
 };
 const STATUS = { draft: "Belum dimulai", running: "Berjalan", paused: "Dijeda", failed: "Perlu dicoba lagi", done: "Selesai" };
 const EXAMPLES = ["Landing page untuk jasa pembuatan website dengan form kontak dan daftar harga", "Aplikasi absensi karyawan untuk pabrik dengan 200 pekerja, bisa dipakai di ponsel", "Kampanye Instagram untuk membuka toko kopi baru di Cianjur", "Fitur reservasi meja untuk jaringan restoran"];
@@ -115,12 +116,12 @@ export function createProjectView({ host, deps }) {
   // ---- the start screen
   function startView() {
     const wrap = el("div", "pj-start");
-    const hero = el("div", "pj-hero");
-    hero.append(el("h2", null, "Proyek tim"), el("p", null, "Beri satu tujuan. Tim bekerja bergiliran, saling menyerahkan hasil dan saling menilai, lalu kamu menerima berkas yang siap dipakai."));
+    const main = el("div", "pj-start-main");
     const label = el("label", "pj-label", "Apa yang ingin dikerjakan tim?"); label.htmlFor = "pj-goal";
-    const goal = el("textarea", "pj-goal"); goal.id = "pj-goal"; goal.rows = 3; goal.maxLength = 2000; goal.value = ui.goal; goal.placeholder = "Contoh: aplikasi absensi karyawan untuk pabrik dengan 200 pekerja";
+    const goal = el("textarea", "pj-goal"); goal.id = "pj-goal"; goal.rows = 1; goal.maxLength = 2000; goal.value = ui.goal; goal.placeholder = "Ketik tujuan proyek (contoh: aplikasi absensi karyawan untuk pabrik)…";
+    const resizeGoal = () => { goal.style.height = "auto"; if (goal.scrollHeight) goal.style.height = Math.min(goal.scrollHeight, 140) + "px"; };
     const chips = el("div", "pj-examples");
-    for (const ex of EXAMPLES) { const c = el("button", "pj-chip", ex); c.type = "button"; c.onclick = () => { goal.value = ui.goal = ex; ui.pick = null; goal.focus(); sync(); }; chips.append(c); }
+    for (const ex of EXAMPLES) { const c = el("button", "pj-chip", ex); c.type = "button"; c.onclick = () => { goal.value = ui.goal = ex; ui.pick = null; resizeGoal(); goal.focus(); sync(); }; chips.append(c); }
 
     const books = el("fieldset", "pj-books"); books.append(el("legend", null, "Cara kerja tim"));
     const cards = {};
@@ -133,26 +134,26 @@ export function createProjectView({ host, deps }) {
       const meta = el("span", "pj-book-meta"); meta.append(`${pb.steps.length} langkah`);
       card.append(radio, faces, t, meta); books.append(card); cards[pb.id] = { card, radio };
     }
-    const go = el("button", "pj-primary"); go.type = "button"; go.append(icon("sparkles"), el("span", null, "Mulai proyek"));
-    const hint = el("p", "pj-hint");
+    const go = el("button", "send"); go.type = "button"; go.title = "Mulai proyek"; go.setAttribute("aria-label", "Mulai proyek"); go.innerHTML = ICON.send;
     const sync = () => {
       ui.goal = goal.value;
       const chosen = ui.pick ?? suggestPlaybook(goal.value);
       for (const [id, c] of Object.entries(cards)) { c.radio.checked = id === chosen; c.card.classList.toggle("on", id === chosen); }
       const ok = goal.value.trim().length >= 5;
       go.disabled = !ok;
-      hint.textContent = `Sumber jawaban: ${NAMES[deps.getProvider()] ?? "islam-gpt"}, ${TIMES[deps.getProvider()] ?? TIMES.islam}. Hasil tersimpan di peramban ini.`;
     };
-    goal.oninput = sync;
-    goal.onkeydown = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !go.disabled) go.click(); };
+    goal.oninput = () => { resizeGoal(); sync(); };
+    goal.onkeydown = (e) => { if (e.key === "Enter" && (!e.shiftKey || e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); if (!go.disabled) go.click(); } };
     go.onclick = () => {
       const p = newProject({ goal: goal.value, playbook: ui.pick ?? suggestPlaybook(goal.value), provider: deps.getProvider() });
       projects.unshift(p); currentId = p.id; ui.goal = ""; ui.pick = null; persist(true); run(p);
     };
-    const actions = el("div", "pj-actions"); actions.append(go, hint);
-    wrap.append(hero, label, goal, chips, books, actions);
-    if (ui.error) wrap.append(errorBox(ui.error));
-    if (projects.length) wrap.append(recent());
+    main.append(books, chips);
+    if (ui.error) main.append(errorBox(ui.error));
+    if (projects.length && !deps.sideList) main.append(recent());
+    const composer = el("div", "composer pj-composer");
+    composer.append(label, goal, go);
+    wrap.append(main, composer);
     sync();
     return wrap;
   }
@@ -192,7 +193,8 @@ export function createProjectView({ host, deps }) {
     else if (act === "continue") ctl.append(button("Lanjutkan", "play", "pj-btn primary", () => run(p)));
     else if (act === "retry") ctl.append(button("Coba lagi", "retry", "pj-btn primary", () => run(p)));
     if (done) ctl.append(button("Unduh semua", "download", "pj-btn", () => deps.download(`${slug(p.title)}.md`, bundleMarkdown(p, Object.fromEntries(p.plan.map((s) => [s.agent, agentOf(s.agent).name]))), "text/markdown")));
-    head.append(back, title, status, ctl);
+    if (!deps.sideList) head.append(back);
+    head.append(title, status, ctl);
     wrap.append(head);
     if (p.error) wrap.append(errorBox(p.error));
     if (p.status === "paused" && p.pause?.reason === "stopped") wrap.append(note("Proyek dijeda. Hasil yang sudah selesai tetap tersimpan."));
@@ -379,7 +381,21 @@ export function createProjectView({ host, deps }) {
     /** Open the screen; an id from the address opens that project (an unknown one the start screen), no id keeps what was open. */
     show(id) { if (id !== undefined) currentId = id && by(id) ? id : null; render(); },
     /** A project that is running somewhere else in the app (e.g. started from the chat) could be opened here. */
-    open(id) { if (by(id)) { currentId = id; render(); } },
+    open(id) { if (by(id)) { currentId = id; render(); host.scrollTop = 0; } },
+    remove(id) {
+      const p = by(id ?? currentId);
+      if (!p || running?.id === p.id || !confirm(`Hapus proyek "${p.title}"?`)) return false;
+      projects.splice(projects.indexOf(p), 1);
+      if (currentId === p.id) currentId = null;
+      persist(true); render();
+      return true;
+    },
+    get list() {
+      return projects.map((p) => {
+        const { done, total } = progress(p);
+        return { id: p.id, title: p.title, goal: p.goal, playbook: p.playbook, playbookTitle: PLAYBOOKS[p.playbook]?.title ?? p.playbook, status: p.status, statusLabel: STATUS[p.status] ?? p.status, updatedAt: p.updatedAt, done, total };
+      });
+    },
     get count() { return projects.length; },
   };
   return api;

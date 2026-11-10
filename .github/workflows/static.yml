@@ -40,6 +40,7 @@ jobs:
           cp -r personas icons office project account _site/
           mkdir _site/src
           cp src/playbooks.js src/roster.js _site/src/
+          cp src/discuss.js _site/src/
       - name: Version the icon addresses (cache busting)
         run: python3 tools/stamp_icons.py _site
       - name: Setup Pages

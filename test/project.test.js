@@ -152,11 +152,14 @@ test("the screen: built with DOM nodes (no innerHTML for anything a model wrote)
   assert.match(view, /auto < 5/, "it goes on by itself when a run only ran out of time, a limited number of times");
 });
 
-test("the page: the project screen is loaded when first opened, the office hears what a project is doing, and the site publishes it", () => {
+test("the page: the project screen is loaded when first opened, shares the left-list / right-detail layout with chat and discussion, the office hears what a project is doing, and the site publishes it", () => {
   assert.match(html, /await import\("\.\/project\/view\.js"\)/);
   assert.match(html, /id="project"/);
   assert.match(html, /id="pj-body"/);
-  assert.match(html, /\.app\.project-mode \.side \{ display: none; \}/);
+  assert.doesNotMatch(html, /\.app\.project-mode \.side \{ display: none; \}/, "left sidebar stays visible in project mode");
+  assert.match(html, /\.app\.project-mode \.project \{ display: flex; \}/);
+  assert.match(html, /item pj-new-item/, "left list has + Proyek baru item at top");
+  assert.match(html, /projectView\?\.open\(p\.id\)/, "clicking a project in the left list opens its detail on the right");
   assert.match(html, /#proyek\(\?:\\\/\(\[\\w-\]\+\)\)\?\$/, "the address #proyek/<id> opens one project");
   assert.match(html, /team: \{\s*busy: \(id, text\)[\s\S]*visit: \(from, to\)/);
   assert.match(html, /const teamBusy = new Map\(\)/);

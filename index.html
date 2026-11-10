@@ -100,7 +100,7 @@
   .item { display: flex; gap: 14px; padding: 0 14px; align-items: center; width: 100%; text-align: left; height: 72px; }
   .item:hover { background: var(--hover); }
   .item.active { background: var(--active); }
-  .item .body { flex: 1; min-width: 0; border-bottom: 1px solid var(--line); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .item .body { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: center; }
   .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
   .row .name { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row .time { font-size: 12px; color: var(--muted); flex: none; }
@@ -221,7 +221,7 @@
   }
 
   /* the virtual office (office/*.js): a 3D view of the professionals at work, with a name tag on each. Opened with the Kantor button; the chat docks on the right. */
-  .office { display: none; flex: 1; min-width: 0; flex-direction: column; background: var(--chat-bg); }
+  .office { display: none; flex: 1; min-width: 0; flex-direction: column; background: var(--chat-bg); position: relative; }
   .app.office-mode .side { display: none; }
   .app.office-mode .office { display: flex; }
   .app.office-mode .back { display: grid; }
@@ -232,12 +232,15 @@
     .app.office-mode.in-chat:not(.doc-open) .chat { flex: none; width: 440px; max-width: 46%; border-left: 1px solid var(--line); }
   }
   .of-top { height: 59px; padding: 0 12px 0 16px; background: var(--panel-2); display: flex; align-items: center; gap: 12px; flex: none; border-bottom: 1px solid var(--line); }
+  .office > .of-top { position: absolute; top: 0; left: 0; z-index: 6; width: 380px; max-width: 40%; height: auto; padding: 0; background: var(--panel); border-right: 1px solid var(--line); border-bottom: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .of-head { height: 59px; padding: 0 16px; background: var(--panel-2); display: flex; align-items: center; gap: 12px; flex: none; }
   .of-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px 8px 11px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; font-weight: 600; flex: none; }
   .of-btn:hover { background: var(--hover); }
   .of-title { flex: 1; min-width: 0; }
   .of-title b { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .of-head .of-title b { font-size: 19px; }
   .of-title span { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .of-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+  .of-tools { display: flex; align-items: center; gap: 12px; flex: none; }
   .of-view { flex: 1; min-height: 0; position: relative; overflow: hidden; isolation: isolate; background: #cfe6f5; } /* isolation: the name tags' depth order stays inside the office, below the chat that slides over it on a phone */
   :root[data-theme="dark"] .of-view { background: #151a2b; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .of-view { background: #151a2b; } }
@@ -273,43 +276,53 @@
   .of-chip.on { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
   .of-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .of-chip .of-av { width: 26px; height: 26px; font-size: 12px; }
+  @media (max-width: 1024px) {
+    .office > .of-top { position: static; width: 100%; max-width: none; border-right: 0; }
+  }
   @media (max-width: 760px) {
     .app.office-mode.in-chat .chat { width: auto; max-width: none; border-left: 0; }
-    .of-zoom { display: none; }
     .of-hint { font-size: 12px; padding: 6px 12px; border-radius: 14px; top: 8px; width: max-content; max-width: calc(100% - 24px); }
     .of-top { padding-left: 10px; gap: 8px; }
   }
   @media (prefers-reduced-motion: reduce) { .of-hint, .of-spin, [data-state="work"] > .of-dot, .of-chip.busy .of-dot { animation: none; } }
 
-  /* the mode switcher (Obrolan, Kantor, Proyek) and the team project screen (project/*.js) */
+  /* the mode switcher (icon-only: chat, office, project, discussion) and the team project screen (project/*.js) */
   .modes { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: none; }
   .modes button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .modes button span { display: none; }
   .modes button:hover { background: var(--hover); color: var(--text); }
   .modes button.on { background: var(--accent); color: var(--on-accent); }
   .modes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .modes svg, .pj-ico svg, .pj-mark svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .modes.inbar { padding: 0; border: 0; flex: none; background: var(--panel); border-radius: 999px; padding: 3px; border: 1px solid var(--line); }
-  .modes.inbar button { flex: none; padding: 6px 13px; }
-  .project { display: none; flex: 1; min-width: 0; flex-direction: column; background: var(--chat-bg); }
-  .app.project-mode .side { display: none; }
+  .modes.inbar button { flex: none; padding: 6px 11px; }
+  .spk { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font-size: 12.5px; line-height: 1.2; flex-wrap: wrap; }
+  .spk-av { width: 20px; height: 20px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; flex: none; }
+  .spk-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .spk-name { font-weight: 700; color: var(--text); }
+  .spk-role { color: var(--muted); font-size: 11.5px; }
+  .spk-round { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+  .project { display: none; flex: 1; min-width: 0; flex-direction: column; background: var(--chat-bg); position: relative; }
   .app.project-mode .project { display: flex; }
-  .app.project-mode .back { display: grid; }
+  .app.project-mode:not(.in-chat) .chat { display: none; }
+  .project > .of-top { border-bottom: 0; }
+  .project .modes.inbar, #pj-provider, #pj-theme, .project .acct { display: none; }
   @media (min-width: 761px) {
-    .app.project-mode:not(.in-chat) .chat { display: none; }
     .app.project-mode.in-chat .chat { flex: none; width: 440px; max-width: 46%; border-left: 1px solid var(--line); }
     .app.project-mode.in-chat.doc-open .chat { display: none; }
   }
-  .pj-body { flex: 1; min-height: 0; overflow-y: auto; padding: 28px clamp(16px, 4vw, 44px) 56px; position: relative; }
-  .pj-start, .pj-run { max-width: 860px; margin: 0 auto; }
-  .pj-hero h2 { font-size: 26px; line-height: 1.2; margin: 0 0 8px; }
-  .pj-hero p { color: var(--muted); margin: 0 0 24px; max-width: 62ch; font-size: 15px; }
-  .pj-label { display: block; font-weight: 600; margin-bottom: 8px; }
-  .pj-goal { width: 100%; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); padding: 14px 16px; font: inherit; resize: vertical; min-height: 96px; outline: none; transition: border-color .15s, box-shadow .15s; }
-  .pj-goal:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
-  .pj-examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 26px; }
+  .pj-body { flex: 1; min-height: 0; overflow-y: auto; padding: 28px clamp(16px, 4vw, 44px) 56px; position: relative;
+    background-image: radial-gradient(circle at 20px 20px, var(--dots) 2px, transparent 3px); background-size: 40px 40px; }
+  .pj-body:has(> .pj-start) { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .pj-start { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+  .pj-start-main { flex: 1; min-height: 0; overflow-y: auto; padding: 28px clamp(16px, 4vw, 44px) 24px; max-width: 860px; width: 100%; margin: 0 auto; scrollbar-width: thin; }
+  .pj-run { max-width: 860px; margin: 0 auto; }
+  .pj-composer { position: relative; }
+  .pj-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .pj-examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
   .pj-chip { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 13px; text-align: left; transition: border-color .15s, color .15s; }
   .pj-chip:hover { border-color: var(--accent); color: var(--text); }
-  .pj-books { border: 0; padding: 0; margin: 0 0 26px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .pj-books { border: 0; padding: 0; margin: 0 0 20px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
   .pj-books legend { font-weight: 600; margin-bottom: 10px; padding: 0; }
   .pj-book { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1.5px solid var(--line); border-radius: 16px; background: var(--panel); cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
   .pj-book:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
@@ -420,15 +433,16 @@
   .pj-finish p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
   .pj-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .project .of-tools { margin-left: auto; }
-  @media (max-width: 1100px) { .app.project-mode.doc-open .project .of-title { display: none; } } /* the document panel takes the room: the screen's title can go */
+  @media (max-width: 1100px) { .app.project-mode.in-chat .side { display: none; } .app.project-mode.doc-open .project .of-title { display: none; } } /* the document or chat panel takes the room */
   @media (max-width: 760px) {
+    .app.project-mode .project { position: fixed; inset: 0; z-index: 2; transform: translateX(100%); transition: transform .2s; }
+    .app.project-mode.in-project .project { transform: none; }
     .pj-body { padding: 18px 14px 40px; }
     .pj-step { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; }
     .pj-avatar { width: 42px; height: 42px; }
     .pj-rail::after { top: 46px; }
     .modes.inbar button span { display: none; }
     .modes.inbar button { padding: 7px 11px; }
-    .project .of-title { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { .pj-step[data-state="running"] .pj-avatar, .pj-bar i { animation: none; transition: none; } }
 </style>
@@ -448,15 +462,14 @@
 
   <section class="office" id="office" aria-label="Kantor virtual">
     <header class="of-top">
-<nav class="modes inbar" data-modes aria-label="Tampilan"></nav>
-      <div class="of-title"><b>Kantor Virtual</b><span id="of-count" aria-live="polite"></span></div>
-      <div class="of-tools">
-        <button class="icon-btn of-zoom" id="of-zin" type="button" title="Perbesar" aria-label="Perbesar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
-        <button class="icon-btn of-zoom" id="of-zout" type="button" title="Perkecil" aria-label="Perkecil"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
-        <button class="icon-btn" id="of-reset" type="button" title="Kembalikan sudut pandang" aria-label="Kembalikan sudut pandang"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
-        <button class="icon-btn" id="of-pause" type="button" title="Jeda gerakan" aria-label="Jeda gerakan" aria-pressed="false"></button>
-        <button class="icon-btn" id="of-theme" type="button"></button>
+      <div class="of-head">
+        <div class="of-title"><b>Kantor Virtual</b><span id="of-count" class="hidden" aria-live="polite"></span></div>
+        <div class="of-tools">
+          <select id="of-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
+          <button class="icon-btn" id="of-theme" type="button"></button>
+        </div>
       </div>
+      <nav class="modes" data-modes aria-label="Tampilan"></nav>
     </header>
     <div class="of-view" id="of-view">
       <div class="of-state" id="of-state" role="status"><div class="of-spin"></div><b>Memuat kantor…</b><span>Menyiapkan ruangan dan tim.</span></div>
@@ -466,11 +479,14 @@
 
   <section class="project" id="project" aria-label="Proyek tim">
     <header class="of-top">
+      <button class="icon-btn back" id="pj-back-mob" type="button" aria-label="Kembali"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
       <nav class="modes inbar" data-modes aria-label="Tampilan"></nav>
-      <div class="of-title"><b>Proyek Tim</b><span id="pj-sub">Beri satu tujuan, tim mengerjakannya bersama</span></div>
+      <div class="avatar" id="pj-hav" style="width:40px;height:40px;font-size:16px;background:var(--accent);color:var(--on-accent)">+</div>
+      <div class="of-title"><b id="pj-htitle">Proyek Baru</b><span id="pj-sub">Beri satu tujuan, tim mengerjakannya bersama</span></div>
       <div class="of-tools">
         <select id="pj-provider" class="provider" aria-label="Sumber jawaban" title="Sumber jawaban"><option value="islam">islam-gpt</option><option value="quran">quran-gpt</option></select>
-        <button class="icon-btn" id="pj-new" type="button" title="Proyek baru" aria-label="Proyek baru"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+        <button class="icon-btn hidden" id="pj-new" type="button" title="Proyek baru" aria-label="Proyek baru"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+        <button class="icon-btn hidden" id="pj-del" type="button" title="Hapus proyek" aria-label="Hapus proyek"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
         <button class="icon-btn" id="pj-theme" type="button"></button>
       </div>
     </header>
@@ -486,7 +502,6 @@
       <button class="icon-btn back" id="back" aria-label="Kembali"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
       <div class="avatar" id="hav" style="width:40px;height:40px;font-size:16px"></div>
       <div class="title"><b id="htitle"></b><span id="hsub"></span></div>
-      <button class="icon-btn" id="web" title="Akses internet" aria-label="Akses internet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></button>
       <button class="icon-btn" id="del" title="Bersihkan percakapan" aria-label="Bersihkan percakapan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
     </header>
     <div class="msgs hidden" id="msgs"></div>
@@ -543,11 +558,20 @@ const AGENTS = [
   { id: "copywriter", name: "Salsa", persona: "personas/copywriter.md", avatar: "personas/salsa.jpg", color: "#7c3aed", about: "Social Media · Copywriter" },
   { id: "analyst", name: "Rendra", persona: "personas/analyst.md", avatar: "personas/rendra.jpg", color: "#0284c7", about: "Social Media · Social Media Analyst" },
 ];
+const GROUPS = [
+  { id: "group:software", key: "software", name: "Software House", avatar: "personas/group-software.jpg", color: "#2563eb", about: "Software House · 7 spesialis", members: ["po", "ba", "engineer", "qa", "designer", "devops", "delivery"] },
+  { id: "group:social", key: "social", name: "Social Media", avatar: "personas/group-social.jpg", color: "#e11d48", about: "Social Media · 6 spesialis", members: ["brand", "planner", "smm", "community", "copywriter", "analyst"] },
+  { id: "group:all", key: "all", name: "All", avatar: "personas/group-all.jpg", color: "#d97706", about: "Software House & Social Media · 13 spesialis", members: AGENTS.map((a) => a.id) },
+];
+const COORDINATOR = { id: "coordinator", name: "Koordinator", color: "#0f766e", about: "Koordinator Diskusi · Menyaring & merangkum" };
+const groupOf = (id) => GROUPS.find((g) => g.id === id || g.key === id);
+const isGroup = (id) => typeof id === "string" && id.startsWith("group:");
+const targetOf = (id) => groupOf(id) ?? agentOf(id);
 
 let state = { chats: [], current: null };
 try { state = { ...state, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch {}
-for (const a of AGENTS) if (!state.chats.some((c) => c.id === a.id)) state.chats.push({ id: a.id, messages: [], updated: 0 });
-state.chats = AGENTS.map((a) => state.chats.find((c) => c.id === a.id));
+for (const a of [...AGENTS, ...GROUPS]) if (!state.chats.some((c) => c.id === a.id)) state.chats.push({ id: a.id, messages: [], updated: 0 });
+state.chats = [...AGENTS, ...GROUPS].map((a) => state.chats.find((c) => c.id === a.id));
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
 const chatById = (id) => state.chats.find((c) => c.id === id);
 const agentOf = (id) => AGENTS.find((a) => a.id === id);
@@ -577,8 +601,7 @@ const PROVIDERS = ["islam", "quran", "deepseek"];
 let provider = "islam";   // the answer source: islam-gpt.org, quran-gpt.netlify.app or DeepSeek (all but islam-gpt only through the Worker: quran-gpt allows no other origin, DeepSeek runs there)
 // DeepSeek is paid for: it is only restored (and only offered) once the Worker says this visitor may use it (see paintAccess)
 try { const saved = localStorage.getItem("islam-chat:provider"); if (PROVIDERS.includes(saved) && saved !== "deepseek") provider = saved; } catch {}
-let webOn = false;
-try { webOn = localStorage.getItem("islam-chat:web") === "1"; } catch {}
+const webOn = true;
 // an anonymous id for this browser, made once
 const DEVICE_ID = (() => {
   try {
@@ -602,22 +625,106 @@ function paintAvatar(node, ag) {
 const busy = new Set(); // chat ids with an answer in flight
 const consults = new Map(); // asker id -> {to, toName}: a professional is putting a question to a colleague right now (shown in the office as a visit)
 
+const PLAYBOOK_COLORS = { website: "#c026d3", software: "#2563eb", campaign: "#e11d48" };
+const PLAYBOOK_NAMES = { website: "Website / Landing Page", software: "Aplikasi / Fitur", campaign: "Kampanye Media Sosial" };
+const PJ_STATUS_NAMES = { draft: "Belum dimulai", running: "Berjalan", paused: "Dijeda", failed: "Perlu dicoba lagi", done: "Selesai" };
+function fallbackProjectList() {
+  try {
+    return (JSON.parse(localStorage.getItem("islam-chat:projects:v1") || "[]") || [])
+      .filter((p) => p && typeof p.id === "string" && Array.isArray(p.plan))
+      .map((p) => {
+        const total = p.plan.length || 1;
+        const done = p.plan.filter((s) => p.steps?.[s.id]?.status === "done").length;
+        return { id: p.id, title: p.title || "Proyek", goal: p.goal || "", playbook: p.playbook, playbookTitle: PLAYBOOK_NAMES[p.playbook] ?? p.playbook ?? "Proyek", status: p.status, statusLabel: PJ_STATUS_NAMES[p.status] ?? p.status ?? "", updatedAt: p.updatedAt || 0, done, total };
+      });
+  } catch { return []; }
+}
+function renderProjectHeader() {
+  const cur = projectView?.current ?? null;
+  const hav = $("pj-hav"), htitle = $("pj-htitle"), hsub = $("pj-sub"), btnNew = $("pj-new"), btnDel = $("pj-del");
+  if (!hav || !htitle || !hsub) return;
+  if (cur) {
+    const items = projectView?.list ?? fallbackProjectList();
+    const info = items.find((x) => x.id === cur.id);
+    const done = info?.done ?? 0, total = info?.total ?? (cur.plan?.length || 1);
+    const pbTitle = info?.playbookTitle ?? PLAYBOOK_NAMES[cur.playbook] ?? cur.playbook;
+    const stLabel = info?.statusLabel ?? PJ_STATUS_NAMES[cur.status] ?? cur.status;
+    hav.style.background = PLAYBOOK_COLORS[cur.playbook] ?? "#d97706";
+    hav.style.color = "#fff";
+    hav.textContent = (cur.title || "P").charAt(0).toUpperCase();
+    htitle.textContent = cur.title;
+    hsub.textContent = cur.status === "running" ? `berjalan · ${done}/${total} langkah…` : `${pbTitle} · ${stLabel} (${done}/${total} langkah)`;
+    btnNew?.classList.remove("hidden");
+    btnDel?.classList.remove("hidden");
+  } else {
+    hav.style.background = "var(--accent)";
+    hav.style.color = "var(--on-accent)";
+    hav.textContent = "+";
+    htitle.textContent = "Proyek Baru";
+    hsub.textContent = "Beri satu tujuan, tim mengerjakannya bersama";
+    btnNew?.classList.add("hidden");
+    btnDel?.classList.add("hidden");
+  }
+}
+
 function renderList() {
   const q = $("q").value.trim().toLowerCase();
   const list = $("list");
   list.replaceChildren();
-  const chats = [...state.chats].sort((a, b) => b.updated - a.updated).filter((c) => !q || (agentOf(c.id).name + " " + agentOf(c.id).about).toLowerCase().includes(q));
+  const sideTitle = document.querySelector(".side h1");
+  if (sideTitle) sideTitle.textContent = projectOn ? "Proyek" : discussionOn ? "Diskusi" : "Chat";
+  $("q").placeholder = projectOn ? "Cari proyek" : discussionOn ? "Cari grup diskusi" : "Cari percakapan";
+  if (projectOn) {
+    const curId = projectView?.current?.id ?? null;
+    const createBtn = el("button", "item pj-new-item" + (!curId ? " active" : ""));
+    const createAv = el("div", "avatar", "+");
+    createAv.style.background = "var(--accent)";
+    createAv.style.color = "var(--on-accent)";
+    const createBody = el("div", "body");
+    const createRow = el("div", "row");
+    createRow.append(el("span", "name", "Proyek baru"));
+    createBody.append(createRow, el("div", "preview", "Beri satu tujuan, tim mengerjakannya bersama"));
+    createBtn.append(createAv, createBody);
+    createBtn.onclick = () => { closePanels(); projectView?.newProject(); $("app").classList.add("in-project"); };
+    list.append(createBtn);
+
+    const allProjects = projectView?.list ?? fallbackProjectList();
+    const filtered = allProjects.filter((p) => !q || (p.title + " " + p.goal + " " + p.playbookTitle).toLowerCase().includes(q));
+    if (!filtered.length) {
+      list.append(el("div", "empty-list", q ? "Tidak ada hasil." : "Belum ada riwayat proyek."));
+    }
+    for (const p of filtered) {
+      const b = el("button", "item" + (p.id === curId ? " active" : ""));
+      const av = el("div", "avatar", (p.title || "P").charAt(0).toUpperCase());
+      av.style.background = PLAYBOOK_COLORS[p.playbook] ?? "#d97706";
+      const body = el("div", "body");
+      const row = el("div", "row");
+      row.append(el("span", "name", p.title), el("span", "time", p.updatedAt ? hhmm(p.updatedAt) : ""));
+      const prev = p.status === "running" ? `berjalan · ${p.done}/${p.total} langkah…` : `${p.playbookTitle} · ${p.statusLabel} (${p.done}/${p.total} langkah)`;
+      body.append(row, el("div", "preview", prev));
+      b.append(av, body);
+      b.onclick = () => { closePanels(); projectView?.open(p.id); $("app").classList.add("in-project"); };
+      list.append(b);
+    }
+    renderProjectHeader();
+    return;
+  }
+  const wTitle = document.querySelector("#welcome h2"), wSub = document.querySelector("#welcome div");
+  if (wTitle) wTitle.textContent = discussionOn ? "Ruang Diskusi Tim" : "Tim Profesional AI";
+  if (wSub) wSub.textContent = discussionOn ? "Pilih grup di sebelah kiri (Software House, Social Media, atau All). Koordinator akan memilih spesialis yang relevan, berdiskusi 2 putaran di meja rapat, lalu menyimpulkan." : "Pilih rekan di sebelah kiri untuk mulai berdiskusi — dari riset produk, desain, sampai penulisan kode.";
+  const pool = state.chats.filter((c) => isGroup(c.id) === Boolean(discussionOn));
+  const chats = (discussionOn ? [...pool] : [...pool].sort((a, b) => b.updated - a.updated)).filter((c) => !q || (targetOf(c.id).name + " " + targetOf(c.id).about).toLowerCase().includes(q));
   if (!chats.length) list.append(el("div", "empty-list", "Tidak ada hasil."));
   for (const c of chats) {
     const last = c.messages[c.messages.length - 1];
     const b = el("button", "item" + (c.id === state.current ? " active" : ""));
-    const ag = agentOf(c.id);
+    const ag = targetOf(c.id);
     const av = el("div", "avatar");
     paintAvatar(av, ag);
     const body = el("div", "body");
     const row = el("div", "row");
     row.append(el("span", "name", ag.name), el("span", "time", last ? hhmm(last.t) : ""));
-    body.append(row, el("div", "preview", busy.has(c.id) ? "mengetik…" : ag.about));
+    body.append(row, el("div", "preview", busy.has(c.id) ? (isGroup(c.id) ? "berdiskusi di ruang rapat…" : "mengetik…") : ag.about));
     b.append(av, body);
     b.onclick = () => open(c.id);
     list.append(b);
@@ -793,6 +900,17 @@ function fillBody(body, text) {
 // one chat bubble: `text` is the message or one paragraph of it; only the last bubble of a message carries the time
 function bubble(m, text, { first = true, last = true } = {}) {
   const b = el("div", "bubble " + (m.role === "user" ? "out" : "in") + (m.error ? " err" : "") + (first ? "" : " cont"));
+  if (first && m.speaker) {
+    const spk = m.speaker === "coordinator" ? COORDINATOR : agentOf(m.speaker);
+    if (spk) {
+      const head = el("div", "spk");
+      const av = el("span", "spk-av"); paintAvatar(av, spk);
+      const role = spk.about.includes(" · ") ? spk.about.split(" · ").slice(1).join(" · ") : spk.about;
+      head.append(av, el("span", "spk-name", spk.name), el("span", "spk-role", role));
+      if (m.round) head.append(el("span", "spk-round", m.round));
+      b.append(head);
+    }
+  }
   const body = el("span", "text");
   fillBody(body, text);
   b.append(body);
@@ -1024,10 +1142,11 @@ function renderChat() {
   $("welcome").classList.toggle("hidden", !!c);
   $("app").classList.toggle("in-chat", !!c);
   if (!c) return;
-  const ag = agentOf(c.id);
+  const ag = targetOf(c.id);
   $("htitle").textContent = ag.name;
   paintAvatar($("hav"), ag);
-  $("hsub").textContent = busy.has(c.id) ? "mengetik…" : "online";
+  const role = ag.about.includes(" · ") ? ag.about.split(" · ").slice(1).join(" · ") : ag.about;
+  $("hsub").textContent = busy.has(c.id) ? (isGroup(c.id) ? "berdiskusi di ruang rapat…" : "mengetik…") : isGroup(c.id) ? ag.about : `online · ${role}`;
   const box = $("msgs");
   box.replaceChildren();
   let day = "";
@@ -1045,7 +1164,7 @@ function renderChat() {
   $("send").disabled = busy.has(c.id);
 }
 
-function open(id) { closeDoc(); state.current = id; save(); renderList(); renderChat(); if (matchMedia("(min-width: 761px)").matches) $("input").focus(); }
+function open(id) { if (officeOn && meetingBusy.has(id)) id = meetingBusy.get(id).groupId; closeDoc(); state.current = id; save(); renderList(); renderChat(); if (matchMedia("(min-width: 761px)").matches) $("input").focus(); }
 
 // the agent's persona file is put in front of every question: the API has no memory, so a persona sent only once would be forgotten
 const personas = {};
@@ -1054,7 +1173,7 @@ const loadPersona = (a) => (personas[a.id] ??= fetch(a.persona).then((r) => (r.o
 // The API answers each question on its own, so a follow-up carries the recent turns inside the question text.
 const HISTORY_TURNS = 6, HISTORY_ANSWER_CHARS = 500, HISTORY_TOTAL_CHARS = 2500;
 function withHistory(c, question, persona) {
-  const name = agentOf(c.id).name;
+  const name = targetOf(c.id).name;
   const turns = c.messages.filter((m) => !m.error && !m.pending && m.text).slice(-HISTORY_TURNS * 2);
   let lines = turns.map((m) => (m.role === "user" ? "User: " : name + ": ") + (m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)));
   while (lines.length && lines.join("\n").length > HISTORY_TOTAL_CHARS) lines.shift();
@@ -1065,9 +1184,332 @@ function withHistory(c, question, persona) {
   return `${parts.join("\n\n")}\n\nUser's ${lines.length ? "new" : "first"} message: ${question}\n\n(Reply in the language of the user's message just above, not the language of the earlier chat.)`;
 }
 
+function groupHistoryText(c) {
+  const turns = c.messages.filter((m) => !m.error && !m.pending && m.text).slice(-HISTORY_TURNS * 2);
+  const lines = turns.map((m) => {
+    const who = m.role === "user" ? "User" : m.speaker === "coordinator" ? "Koordinator" : agentOf(m.speaker)?.name ?? "Spesialis";
+    return `${who}: ${m.role === "user" ? m.text : m.text.slice(0, HISTORY_ANSWER_CHARS)}`;
+  });
+  while (lines.length && lines.join("\n").length > HISTORY_TOTAL_CHARS) lines.shift();
+  return lines.join("\n");
+}
+
+async function runTurn({ c, prompt, persona = "", text = "", reply, bufferOnly = false, update }) {
+  const chatId = c.groupId ?? c.id;
+  const useWorker = webOn || provider !== "islam";
+  let res;
+  if (useWorker) {
+    // through the local proxy, which lets the model search the web and streams back the same SSE events
+    res = await fetch(PROXY + "/agent", authInit({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider, agent: c.id }) })).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
+    if (res.status === 429 && isGroup(chatId) && provider === "islam") {
+      const fullPrompt = persona ? `${persona}\n\n${prompt}` : prompt;
+      const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: fullPrompt }) });
+      if (q.ok) {
+        const { shareId } = await q.json();
+        if (shareId) res = await fetch(API + "/api/stream/" + encodeURIComponent(shareId), { headers: { Accept: "text/event-stream" } });
+      }
+    }
+    if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
+  } else {
+    // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
+    const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt }) });
+    if (!q.ok) throw new Error("HTTP " + q.status);
+    const { shareId } = await q.json();
+    if (!shareId) throw new Error("no shareId");
+    res = await fetch(API + "/api/stream/" + encodeURIComponent(shareId), { headers: { Accept: "text/event-stream" } });
+  }
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "", rawText = "";
+  read: for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += value;
+    const blocks = buf.split(/\r?\n\r?\n/);
+    buf = blocks.pop();
+    for (const blk of blocks) {
+      const data = blk.split(/\r?\n/).filter((l) => l.startsWith("data:")).map((l) => l.slice(5).replace(/^ /, "")).join("\n");
+      if (!data) continue;
+      const ev = JSON.parse(data);
+      if (ev.type === "chunk") {
+        rawText += ev.text;
+        if (!bufferOnly) { reply.text += ev.text; reply.t = Date.now(); update(); }
+      }
+      else if (ev.type === "image" && /^https:\/\/(upload|thumb)\.wikimedia\.org\//.test(ev.url) && /^https:\/\//.test(ev.page)) { (reply.images ??= []).push({ url: ev.url, title: String(ev.title), credit: String(ev.credit ?? ""), page: ev.page }); update(); }
+      else if (ev.type === "document" && typeof ev.markdown === "string") {
+        const d = { title: String(ev.title || "Dokumen").slice(0, 120), markdown: ev.markdown.slice(0, 100000) };
+        (reply.docs ??= []).push(d);
+        if (state.current === chatId) openDoc({ kind: "doc", ...d }); // show it on the right as soon as it arrives
+        update();
+      }
+      else if (ev.type === "mockup" && typeof ev.html === "string") {
+        const k = { title: String(ev.title || "Mockup").slice(0, 120), html: ev.html };
+        (reply.mockups ??= []).push(k);
+        if (state.current === chatId) openDoc({ kind: "mockup", ...k }); // show it on the right as soon as it arrives
+        update();
+      }
+      else if (ev.type === "formats" && !isGroup(chatId)) { reply.formats = true; update(); }
+      else if (ev.type === "consult" && typeof ev.to === "string" && !isGroup(chatId)) { if (ev.phase === "start") consults.set(c.id, { to: ev.to, toName: String(ev.toName ?? "") }); else consults.delete(c.id); update(); }
+      else if (ev.type === "tool") { reply.status = ev.phase === "start" ? toolStatus(ev) : "menulis jawaban…"; update(); }
+      else if (ev.type === "error") throw new Error(ev.message);
+      else if (ev.type === "done") { reader.cancel(); break read; }
+    }
+  }
+  return rawText;
+}
+
+function releaseMeetingAfterHold(groupId, ids, holdMs = 25000) {
+  for (const id of ids) {
+    const cur = meetingBusy.get(id);
+    if (cur?.groupId === groupId) meetingBusy.set(id, { groupId, status: "selesai rapat ✓" });
+  }
+  setTimeout(() => {
+    let changed = false;
+    for (const id of ids) {
+      const cur = meetingBusy.get(id);
+      if (cur?.groupId === groupId && cur.status === "selesai rapat ✓") { meetingBusy.delete(id); changed = true; }
+    }
+    if (changed && officeReady && officeOn) renderRoster();
+  }, holdMs);
+}
+
+async function runGroupRound3(c, userAnswer) {
+  const r3State = c.round3State;
+  delete c.round3State;
+  const picked = r3State.agents ?? [];
+  const now = Date.now();
+  c.messages.push({ role: "user", text: userAnswer, t: now });
+  c.updated = now;
+  busy.add(c.id);
+  meetingBusy.set("coordinator", { groupId: c.id, status: "memandu putaran 3 di meja rapat…" });
+  for (const id of picked) meetingBusy.set(id, { groupId: c.id, status: "duduk di meja rapat (putaran 3)…" });
+  save(); renderList(); renderChat();
+  const update = () => { if (state.current === c.id) renderChat(); renderList(); };
+  try {
+    const { buildRound3Prompt, buildFinalSummaryPrompt } = await import("./src/discuss.js");
+    const round3 = [];
+    for (const id of picked) {
+      const ag = agentOf(id);
+      if (!ag) continue;
+      const persona = await loadPersona(ag);
+      const useWorker = webOn || provider !== "islam";
+      const baseR3 = buildRound3Prompt({
+        question: r3State.question,
+        coordinatorQuestions: r3State.coordinatorText,
+        userAnswer,
+        groupId: c.id,
+        agentId: id,
+        round1: r3State.round1,
+        round2: r3State.round2,
+        round3SoFar: round3,
+      });
+      const r3Prompt = !useWorker && persona ? `${persona}\n\n${baseR3}` : baseR3;
+      const msg = { role: "bot", speaker: id, round: "Putaran 3", text: "", status: `${ag.name} menyusun rekomendasi akhir…`, t: Date.now(), pending: true };
+      c.messages.push(msg);
+      meetingBusy.set(id, { groupId: c.id, status: "berbicara (putaran 3)…" });
+      update();
+      try {
+        await runTurn({ c: { id, groupId: c.id }, prompt: r3Prompt, persona: useWorker ? persona : "", text: userAnswer, reply: msg, update });
+        if (!msg.text && !msg.docs?.length && !msg.mockups?.length && !msg.images?.length) msg.text = "(Tidak ada tambahan.)";
+      } catch (e) {
+        msg.error = true;
+        msg.text = (msg.text ? msg.text + "\n\n" : "") + "Gagal: " + e.message;
+      }
+      delete msg.pending; delete msg.status; msg.t = Date.now(); c.updated = msg.t;
+      const drawn = msg.error ? [] : extractSvgs(msg.text);
+      if (drawn.length && !msg.mockups?.length && state.current === c.id) openDoc(svgDoc(drawn[0]));
+      if (!msg.error && (msg.text || msg.docs?.length || msg.mockups?.length)) round3.push({ id, text: msg.text, docs: msg.docs, mockups: msg.mockups });
+      meetingBusy.set(id, { groupId: c.id, status: "menyimak di meja rapat…" });
+      consults.delete(id);
+      save(); update();
+    }
+    if (round3.length > 0) {
+      const sumMsg = { role: "bot", speaker: "coordinator", round: "Ringkasan Koordinator (Putaran 3)", text: "", status: "menyusun kesimpulan akhir…", t: Date.now(), pending: true };
+      c.messages.push(sumMsg);
+      meetingBusy.set("coordinator", { groupId: c.id, status: "merangkum kesimpulan akhir…" });
+      update();
+      try {
+        const sumPrompt = buildFinalSummaryPrompt({ question: r3State.question, userAnswer, groupId: c.id, round1: r3State.round1, round2: r3State.round2, round3 });
+        await runTurn({ c, prompt: sumPrompt, persona: "", text: "", reply: sumMsg, update });
+        if (!sumMsg.text) throw new Error("Tidak ada ringkasan.");
+      } catch (e) {
+        sumMsg.error = true;
+        sumMsg.text = (sumMsg.text ? sumMsg.text + "\n\n" : "") + "Gagal: " + e.message;
+      }
+      delete sumMsg.pending; delete sumMsg.status; sumMsg.t = Date.now(); c.updated = sumMsg.t;
+    }
+  } finally {
+    for (const id of picked) consults.delete(id);
+    releaseMeetingAfterHold(c.id, ["coordinator", ...picked]);
+    busy.delete(c.id);
+    save(); update();
+  }
+}
+
+async function sendGroupMessage(c, question) {
+  const g = groupOf(c.id);
+  if (!g) return;
+  if (c.round3State?.agents?.length) return runGroupRound3(c, question);
+  const history = groupHistoryText(c);
+  const now = Date.now();
+  c.messages.push({ role: "user", text: question, t: now });
+  const coordMsg = { role: "bot", speaker: "coordinator", round: "Koordinator", text: "", status: "memilih spesialis untuk diskusi…", t: Date.now(), pending: true };
+  c.messages.push(coordMsg);
+  c.updated = now;
+  busy.add(c.id);
+  meetingBusy.set("coordinator", { groupId: c.id, status: "memilih spesialis di meja rapat…" });
+  for (const id of g.members) meetingBusy.set(id, { groupId: c.id, status: "menuju meja rapat…" });
+  save(); renderList(); renderChat();
+  const update = () => { if (state.current === c.id) renderChat(); renderList(); };
+  let picked = [];
+  try {
+    const { buildScreenPrompt, parseScreenReply, buildRound1Prompt, buildRound2Prompt, isPassReply, buildSummaryPrompt, extractNumberedQuestions, hasNumberedQuestions } = await import("./src/discuss.js");
+    const screenRaw = await runTurn({ c, prompt: buildScreenPrompt(question, c.id), reply: coordMsg, bufferOnly: true, update });
+    const screen = parseScreenReply(screenRaw, c.id, question);
+    coordMsg.text = screen.intro;
+    delete coordMsg.pending; delete coordMsg.status; coordMsg.t = Date.now(); c.updated = coordMsg.t;
+    save(); update();
+    if (!screen.answerable || !screen.agents.length) {
+      for (const id of ["coordinator", ...g.members]) meetingBusy.delete(id);
+      return;
+    }
+    picked = screen.agents;
+    for (const id of g.members) {
+      if (!picked.includes(id)) meetingBusy.delete(id);
+    }
+    meetingBusy.set("coordinator", { groupId: c.id, status: "memandu diskusi di meja rapat…" });
+    for (const id of picked) meetingBusy.set(id, { groupId: c.id, status: "duduk di meja rapat…" });
+    update();
+
+    // Round 1: every picked specialist answers from their perspective
+    const round1 = [];
+    for (const id of picked) {
+      const ag = agentOf(id);
+      if (!ag) continue;
+      const persona = await loadPersona(ag);
+      const useWorker = webOn || provider !== "islam";
+      const baseR1 = buildRound1Prompt({
+        question,
+        groupId: c.id,
+        agentId: id,
+        pickedIds: picked,
+        round1SoFar: round1,
+        history,
+      });
+      const r1Prompt = !useWorker && persona ? `${persona}\n\n${baseR1}` : baseR1;
+      const msg = { role: "bot", speaker: id, round: "Putaran 1", text: "", status: `${ag.name} menyampaikan pandangan…`, t: Date.now(), pending: true };
+      c.messages.push(msg);
+      meetingBusy.set(id, { groupId: c.id, status: "berbicara (putaran 1)…" });
+      update();
+      try {
+        await runTurn({ c: { id, groupId: c.id }, prompt: r1Prompt, persona: useWorker ? persona : "", text: question, reply: msg, update });
+        if (!msg.text && !msg.docs?.length && !msg.mockups?.length && !msg.images?.length) msg.text = "(Tidak ada tambahan.)";
+      } catch (e) {
+        msg.error = true;
+        msg.text = (msg.text ? msg.text + "\n\n" : "") + "Gagal: " + e.message;
+      }
+      delete msg.pending; delete msg.status; msg.t = Date.now(); c.updated = msg.t;
+      const drawn = msg.error ? [] : extractSvgs(msg.text);
+      if (drawn.length && !msg.mockups?.length && state.current === c.id) openDoc(svgDoc(drawn[0]));
+      if (!msg.error && (msg.text || msg.docs?.length || msg.mockups?.length)) round1.push({ id, text: msg.text, docs: msg.docs, mockups: msg.mockups });
+      meetingBusy.set(id, { groupId: c.id, status: "menyimak di meja rapat…" });
+      consults.delete(id);
+      save(); update();
+    }
+
+    // Round 2: each specialist hears all Round 1 thoughts; adding a message is optional (<pass/> skips)
+    const round2 = [];
+    if (round1.length > 0) {
+      for (const id of picked) {
+        const ag = agentOf(id);
+        if (!ag) continue;
+        const persona = await loadPersona(ag);
+        const useWorker = webOn || provider !== "islam";
+        const baseR2 = buildRound2Prompt({
+          question,
+          groupId: c.id,
+          agentId: id,
+          round1,
+          round2SoFar: round2,
+        });
+        const r2Prompt = !useWorker && persona ? `${persona}\n\n${baseR2}` : baseR2;
+        const msg = { role: "bot", speaker: id, round: "Putaran 2", text: "", status: `${ag.name} menimbang tanggapan…`, t: Date.now(), pending: true };
+        c.messages.push(msg);
+        meetingBusy.set(id, { groupId: c.id, status: "menanggapi (putaran 2)…" });
+        update();
+        let rawR2 = "";
+        try {
+          rawR2 = await runTurn({ c: { id, groupId: c.id }, prompt: r2Prompt, persona: useWorker ? persona : "", text: "", reply: msg, bufferOnly: true, update });
+        } catch {
+          rawR2 = "<pass/>";
+        }
+        consults.delete(id);
+        const hasAttachment = Boolean(msg.docs?.length || msg.mockups?.length || msg.images?.length);
+        if (isPassReply(rawR2) && !hasAttachment) {
+          const idx = c.messages.indexOf(msg);
+          if (idx !== -1) c.messages.splice(idx, 1);
+        } else {
+          msg.text = rawR2.replace(/<\s*pass\s*\/?\s*>/gi, "").trim() || "(Melampirkan hasil tambahan.)";
+          delete msg.pending; delete msg.status; msg.t = Date.now(); c.updated = msg.t;
+          const drawn = extractSvgs(msg.text);
+          if (drawn.length && !msg.mockups?.length && state.current === c.id) openDoc(svgDoc(drawn[0]));
+          round2.push({ id, text: msg.text, docs: msg.docs, mockups: msg.mockups });
+        }
+        meetingBusy.set(id, { groupId: c.id, status: "menyimak di meja rapat…" });
+        save(); update();
+      }
+    }
+
+    // Coordinator summary: only after Round 2 is over
+    if (round1.length > 0) {
+      const sumMsg = { role: "bot", speaker: "coordinator", round: "Ringkasan Koordinator", text: "", status: "menyusun kesimpulan diskusi…", t: Date.now(), pending: true };
+      c.messages.push(sumMsg);
+      meetingBusy.set("coordinator", { groupId: c.id, status: "merangkum hasil diskusi…" });
+      update();
+      const numbered = extractNumberedQuestions(round1, round2);
+      try {
+        const sumPrompt = buildSummaryPrompt({ question, groupId: c.id, round1, round2 });
+        await runTurn({ c, prompt: sumPrompt, persona: "", text: "", reply: sumMsg, update });
+        if (!sumMsg.text) throw new Error("Tidak ada ringkasan.");
+        if (numbered && !hasNumberedQuestions(sumMsg.text)) {
+          sumMsg.text = `${sumMsg.text.trim()}\n\nPertanyaan dari tim untuk dilanjutkan ke Putaran 3:\n${numbered}\n\nSilakan jawab pertanyaan di atas untuk masuk ke Putaran 3.`;
+        }
+      } catch (e) {
+        if (numbered) {
+          sumMsg.text = (sumMsg.text ? sumMsg.text.trim() + "\n\n" : "") + `Ringkasan pertanyaan dari tim untuk dilanjutkan ke Putaran 3:\n\n${numbered}\n\nSilakan jawab pertanyaan di atas untuk masuk ke Putaran 3.`;
+        } else {
+          sumMsg.error = true;
+          sumMsg.text = (sumMsg.text ? sumMsg.text + "\n\n" : "") + "Gagal: " + e.message;
+        }
+      }
+      delete sumMsg.pending; delete sumMsg.status; sumMsg.t = Date.now(); c.updated = sumMsg.t;
+      if (!sumMsg.error && hasNumberedQuestions(sumMsg.text)) {
+        c.round3State = { question, agents: picked, round1, round2, coordinatorText: sumMsg.text };
+      }
+    }
+  } catch (e) {
+    coordMsg.error = true;
+    coordMsg.text = (coordMsg.text ? coordMsg.text + "\n\n" : "") + "Gagal: " + e.message;
+    delete coordMsg.pending; delete coordMsg.status;
+  } finally {
+    for (const id of picked) consults.delete(id);
+    if (c.round3State?.agents?.length) {
+      meetingBusy.set("coordinator", { groupId: c.id, status: "menunggu jawaban untuk Putaran 3…" });
+      for (const id of c.round3State.agents) meetingBusy.set(id, { groupId: c.id, status: "menunggu jawaban untuk Putaran 3…" });
+    } else if (picked.length) {
+      releaseMeetingAfterHold(c.id, ["coordinator", ...picked]);
+    } else {
+      for (const id of ["coordinator", ...g.members]) meetingBusy.delete(id);
+    }
+    busy.delete(c.id);
+    save(); update();
+  }
+}
+
 async function sendMessage(text) {
   const c = chatById(state.current);
   if (!c || busy.has(c.id) || !text.trim()) return;
+  if (isGroup(c.id)) return sendGroupMessage(c, text.trim());
   const persona = await loadPersona(agentOf(c.id));
   // with internet on, the proxy gets the persona separately so it can restate it after every tool result
   const useWorker = webOn || provider !== "islam";
@@ -1082,53 +1524,7 @@ async function sendMessage(text) {
 
   const update = () => { if (state.current === c.id) { renderChat(); } renderList(); };
   try {
-    let res;
-    if (useWorker) {
-      // through the local proxy, which lets the model search the web and streams back the same SSE events
-      res = await fetch(PROXY + "/agent", authInit({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt, persona, message: text.trim(), provider, agent: c.id }) })).catch(() => { throw new Error(PROXY === WORKER ? "layanan internet tidak bisa dihubungi, coba lagi" : "proxy lokal tidak jalan (node bin/proxy.js)"); });
-      if (res.status === 429) throw new Error("terlalu banyak pertanyaan, tunggu sebentar lalu coba lagi");
-    } else {
-      // straight to islam-gpt.org (it allows any origin): POST the question, then read the answer as SSE
-      const q = await fetch(API + "/api/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: DEVICE_ID, question: prompt }) });
-      if (!q.ok) throw new Error("HTTP " + q.status);
-      const { shareId } = await q.json();
-      if (!shareId) throw new Error("no shareId");
-      res = await fetch(API + "/api/stream/" + encodeURIComponent(shareId), { headers: { Accept: "text/event-stream" } });
-    }
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buf = "";
-    read: for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += value;
-      const blocks = buf.split(/\r?\n\r?\n/);
-      buf = blocks.pop();
-      for (const blk of blocks) {
-        const data = blk.split(/\r?\n/).filter((l) => l.startsWith("data:")).map((l) => l.slice(5).replace(/^ /, "")).join("\n");
-        if (!data) continue;
-        const ev = JSON.parse(data);
-        if (ev.type === "chunk") { reply.text += ev.text; reply.t = Date.now(); update(); }
-        else if (ev.type === "image" && /^https:\/\/(upload|thumb)\.wikimedia\.org\//.test(ev.url) && /^https:\/\//.test(ev.page)) { (reply.images ??= []).push({ url: ev.url, title: String(ev.title), credit: String(ev.credit ?? ""), page: ev.page }); update(); }
-        else if (ev.type === "document" && typeof ev.markdown === "string") {
-          const d = { title: String(ev.title || "Dokumen").slice(0, 120), markdown: ev.markdown.slice(0, 100000) };
-          (reply.docs ??= []).push(d);
-          if (state.current === c.id) openDoc({ kind: "doc", ...d }); // show it on the right as soon as it arrives
-          update();
-        }
-        else if (ev.type === "mockup" && typeof ev.html === "string") {
-          const k = { title: String(ev.title || "Mockup").slice(0, 120), html: ev.html };
-          (reply.mockups ??= []).push(k);
-          if (state.current === c.id) openDoc({ kind: "mockup", ...k }); // show it on the right as soon as it arrives
-          update();
-        }
-        else if (ev.type === "formats") { reply.formats = true; update(); }
-        else if (ev.type === "consult" && typeof ev.to === "string") { if (ev.phase === "start") consults.set(c.id, { to: ev.to, toName: String(ev.toName ?? "") }); else consults.delete(c.id); update(); }
-        else if (ev.type === "tool") { reply.status = ev.phase === "start" ? toolStatus(ev) : "menulis jawaban…"; update(); }
-        else if (ev.type === "error") throw new Error(ev.message);
-        else if (ev.type === "done") { reader.cancel(); break read; }
-      }
-    }
+    await runTurn({ c, prompt, persona, text, reply, update });
     if (!reply.text) throw new Error("Tidak ada jawaban.");
   } catch (e) {
     reply.error = true;
@@ -1161,7 +1557,6 @@ $("mock-tabs").onclick = (e) => { const b = e.target.closest("button"); if (b &&
 $("mock-bg").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.svg) { mockBg = b.dataset.bg; paintTools(); renderMock(); } };
 $("mock-devices").onclick = (e) => { const b = e.target.closest("button"); if (b && docView?.kind === "mockup") { mockWidth = Number(b.dataset.w); paintTools(); renderMock(); } };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && docView) closeDoc(); });
-const paintWeb = () => { $("web").style.opacity = webOn ? 1 : .4; $("web").title = webOn ? "Internet aktif (klik untuk mati). Pesanmu dikirim ke server dan dicatat." : "Internet mati (klik untuk aktif)"; };
 // a team project takes many model calls: until somebody picks a source, its screen offers the faster one (quran-gpt)
 let deepseekAllowed = false; // the Worker's GET /access: only the allowed accounts see and may use DeepSeek
 const authInit = (init = {}) => (accountApi && PROXY === WORKER ? accountApi.requestInit(init) : init); // adds who is asking (the shared sign-in) to a request to our Worker (not to a local proxy)
@@ -1169,14 +1564,14 @@ let accountApi = null;
 let routedId = null; // the project the address showed last (null: the start screen)
 function paintAccess(allowed) {
   deepseekAllowed = !!allowed;
-  for (const id of ["provider", "pj-provider"]) {
+  for (const id of ["provider", "of-provider", "pj-provider"]) {
     const sel = $(id), has = [...sel.options].some((o) => o.value === "deepseek");
     if (allowed && !has) { const o = document.createElement("option"); o.value = "deepseek"; o.textContent = "DeepSeek"; sel.append(o); }
     if (!allowed && has) [...sel.options].find((o) => o.value === "deepseek").remove();
   }
   if (!allowed && provider === "deepseek") setProvider("islam"); // signed out, or another account: back to the free source
   if (allowed) { try { if (localStorage.getItem("islam-chat:provider") === "deepseek" && provider !== "deepseek") setProvider("deepseek"); } catch {} }
-  $("provider").value = provider; $("pj-provider").value = projectProvider();
+  $("provider").value = provider; $("of-provider").value = provider; $("pj-provider").value = projectProvider();
 }
 const projectProvider = () => (providerChosen ? provider : "quran");
 async function refreshAccess() {
@@ -1189,20 +1584,20 @@ function setProvider(v) {
   provider = PROVIDERS.includes(v) && (v !== "deepseek" || deepseekAllowed) ? v : "islam"; // DeepSeek only for an account the Worker allowed
   providerChosen = true;
   try { localStorage.setItem("islam-chat:provider", provider); } catch {}
-  $("provider").value = provider; $("pj-provider").value = provider; // the chat list and the project screen show the same choice
+  $("provider").value = provider; $("of-provider").value = provider; $("pj-provider").value = provider; // the chat list, office, and project screen show the same choice
   projectView?.render(); // its hint names the source
 }
 $("provider").onchange = (e) => setProvider(e.target.value);
+$("of-provider").onchange = (e) => setProvider(e.target.value);
 $("pj-provider").onchange = (e) => setProvider(e.target.value);
-$("provider").value = provider; $("pj-provider").value = providerChosen ? provider : "quran";
-$("web").onclick = () => { webOn = !webOn; try { localStorage.setItem("islam-chat:web", webOn ? "1" : "0"); } catch {} paintWeb(); };
-paintWeb();
+$("provider").value = provider; $("of-provider").value = provider; $("pj-provider").value = providerChosen ? provider : "quran";
 $("q").oninput = renderList;
 $("back").onclick = () => { closeDoc(); state.current = null; save(); renderList(); renderChat(); };
 $("del").onclick = () => {
   const c = chatById(state.current);
-  if (!c || busy.has(c.id) || !confirm(`Bersihkan percakapan dengan ${agentOf(c.id).name}?`)) return;
-  c.messages = []; c.updated = 0;
+  if (!c || busy.has(c.id) || !confirm(`Bersihkan percakapan dengan ${targetOf(c.id).name}?`)) return;
+  c.messages = []; c.updated = 0; delete c.round3State;
+  for (const [id, v] of meetingBusy) if (v?.groupId === c.id) meetingBusy.delete(id);
   save(); renderList(); renderChat();
 };
 $("form").onsubmit = (e) => { e.preventDefault(); const v = $("input").value; $("input").value = ""; $("input").style.height = ""; sendMessage(v); };
@@ -1246,6 +1641,8 @@ const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="14" y="
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 var office = null, officeLoading = null, officeOn = false, projectOn = false, projectView = null, officeReady = false; // var: the theme code above runs before this block and looks at officeReady
+var discussionOn = false;
+const meetingBusy = new Map(); // agent id -> { groupId, status } while sitting at the meeting room table during a group discussion
 
 const loadThree = () => new Promise((resolve, reject) => {
   if (window.THREE) return resolve();
@@ -1262,10 +1659,12 @@ function officeState(id) {
   const handoff = teamVisits.get(id) ?? null;                   // handing a finished step to the next person in a team project
   const asked = [...consults].find(([, v]) => v.to === id);     // somebody is asking this person a question: they stop and answer
   const writing = teamBusy.get(id) ?? null;                     // writing a step of a team project
+  const meeting = meetingBusy.get(id) ?? null;                  // sitting at the meeting room table during a group discussion
   return {
-    busy: busy.has(id) || !!asked || !!writing,
-    status: visit ? `bertanya ke ${visit.toName}…` : handoff ? `menyerahkan hasil ke ${agentOf(handoff)?.name ?? "rekan"}…` : asked ? `menjawab pertanyaan ${agentOf(asked[0])?.name ?? "rekan"}…` : writing ?? (last?.pending ? last.status : null),
-    selected: state.current === id,
+    busy: busy.has(id) || !!asked || !!writing || !!meeting,
+    meeting: !!meeting,
+    status: visit ? `bertanya ke ${visit.toName}…` : handoff ? `menyerahkan hasil ke ${agentOf(handoff)?.name ?? "rekan"}…` : asked ? `menjawab pertanyaan ${agentOf(asked[0])?.name ?? "rekan"}…` : meeting ? meeting.status : writing ?? (last?.pending ? last.status : null),
+    selected: state.current === id || (!!meeting && state.current === meeting.groupId),
     visit: visit?.to ?? handoff,
   };
 }
@@ -1298,8 +1697,8 @@ async function startOffice() {
     officeMessage([el("b", null, noGl ? "Peramban ini tidak mendukung grafik 3D (WebGL)" : "Kantor tidak bisa dimuat"), el("span", null, noGl ? "Gunakan daftar obrolan di sebelah." : String(e?.message ?? e)), ...(noGl ? [] : [retry])]);
   }
 }
-// The address: #kantor, #proyek (the start screen), #proyek/<id> (one project), else the chat.
-const parseHash = (h = location.hash) => { const m = /^#proyek(?:\/([\w-]+))?$/.exec(h); return h === "#kantor" ? { view: "office" } : m ? { view: "project", id: m[1] ?? null } : { view: "chat" }; };
+// The address: #kantor, #diskusi, #proyek (the start screen), #proyek/<id> (one project), else the chat.
+const parseHash = (h = location.hash) => { const m = /^#proyek(?:\/([\w-]+))?$/.exec(h); return h === "#kantor" ? { view: "office" } : h === "#diskusi" ? { view: "discussion" } : m ? { view: "project", id: m[1] ?? null } : { view: "chat" }; };
 // The start screen of the projects (#proyek) has nothing open beside it: no chat, no document or page on the right.
 function closePanels() {
   closeDoc();
@@ -1308,27 +1707,33 @@ function closePanels() {
 function setView(view, id) {
   const was = officeOn ? "office" : projectOn ? "project" : "chat";
   if (was !== view) closePanels(); // another screen (by a button, the address, or the browser's back button): what was open beside the old one is closed
+  if ((discussionOn ? "discussion" : was) !== view) closePanels();
   officeOn = view === "office";
   projectOn = view === "project";
+  discussionOn = view === "discussion";
   $("app").classList.toggle("office-mode", officeOn);
   $("app").classList.toggle("project-mode", projectOn);
-  try { history.replaceState(null, "", officeOn ? "#kantor" : projectOn ? (parseHash().view === "project" ? location.hash : "#proyek") : location.pathname + location.search); } catch {}
+  $("app").classList.toggle("discussion-mode", discussionOn);
+  $("app").classList.toggle("in-project", Boolean(projectOn && id));
+  try { history.replaceState(null, "", officeOn ? "#kantor" : discussionOn ? "#diskusi" : projectOn ? (parseHash().view === "project" ? location.hash : "#proyek") : location.pathname + location.search); } catch {}
   if (officeOn) { startOffice(); renderRoster(); } else office?.stop();
-  if (projectOn) { if (id === null || (id === undefined && !projectView?.current)) closePanels(); openProject(id); }
-  if (view === "chat") closeDoc();
+  if (projectOn) { if (id === null || (id === undefined && !projectView?.current)) closePanels(); renderList(); openProject(id); }
+  if (view === "chat" || view === "discussion") { closeDoc(); renderList(); renderChat(); }
   paintModes();
   paintOfficeTools();
 }
-// the mode switcher: the same three buttons in the chat list and in the top bars of the office and the project screen
+// the mode switcher: the same four icon-only buttons in the chat list and in the top bars of the office and the project screen
 const ICON_MODES = {
   chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   office: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>',
   project: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>',
+  discussion: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
 };
-const MODE_LABELS = { chat: "Obrolan", office: "Kantor", project: "Proyek" };
+const MODE_LABELS = { chat: "Obrolan", discussion: "Diskusi", project: "Proyek", office: "Kantor" };
 for (const nav of document.querySelectorAll("[data-modes]")) {
-  for (const mode of ["chat", "office", "project"]) {
-    const b = el("button"); b.type = "button"; b.dataset.mode = mode; b.title = { chat: "Daftar obrolan", office: "Kantor virtual: lihat tim bekerja", project: "Proyek tim: beri satu tujuan" }[mode];
+  for (const mode of ["chat", "discussion", "project", "office"]) {
+    const b = el("button"); b.type = "button"; b.dataset.mode = mode; b.title = { chat: "Daftar obrolan", office: "Kantor virtual: lihat tim bekerja", project: "Proyek tim: beri satu tujuan", discussion: "Diskusi grup: Software House, Social Media, All" }[mode];
+    b.setAttribute("aria-label", MODE_LABELS[mode]);
     b.innerHTML = ICON_MODES[mode]; // constant markup
     b.append(el("span", null, MODE_LABELS[mode]));
     // every click on a mode button closes what is open beside the screen (the chat and the document or page on the right); Proyek goes to #proyek, the
@@ -1338,7 +1743,7 @@ for (const nav of document.querySelectorAll("[data-modes]")) {
   }
 }
 function paintModes() {
-  const now = officeOn ? "office" : projectOn ? "project" : "chat";
+  const now = officeOn ? "office" : projectOn ? "project" : discussionOn ? "discussion" : "chat";
   for (const b of document.querySelectorAll("[data-modes] button")) { const on = b.dataset.mode === now; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
 }
 const AREA = (a) => a.about.split(" · ")[0];
@@ -1347,25 +1752,23 @@ function renderRoster() {
   const nav = $("of-roster");
   if (!rosterBuilt) {
     rosterBuilt = true;
-    for (const a of AGENTS) {
+    for (const a of [...AGENTS, COORDINATOR]) {
       const chip = el("button", "of-chip");
       chip.type = "button"; chip.dataset.id = a.id; chip.title = a.about;
       const av = el("span", "of-av"); paintAvatar(av, a);
       chip.append(av, el("span", null, a.name), el("span", "of-dot"));
-      chip.onclick = () => open(a.id);
+      chip.onclick = () => { if (a.id === "coordinator") { office?.pinpoint?.("coordinator"); renderRoster(); } else open(a.id); };
       nav.append(chip);
     }
   }
   let working = 0;
   for (const chip of nav.children) {
-    const id = chip.dataset.id, b = busy.has(id);
-    if (b) working++;
+    const id = chip.dataset.id, ag = id === "coordinator" ? COORDINATOR : agentOf(id), b = busy.has(id) || meetingBusy.has(id);
+    if (b && id !== "coordinator") working++;
     chip.classList.toggle("busy", b);
-    chip.classList.toggle("on", state.current === id);
-    chip.setAttribute("aria-label", `${agentOf(id).name}, ${agentOf(id).about}${b ? ", sedang bekerja" : ""}`);
+    chip.classList.toggle("on", id === "coordinator" ? office?.pinpointed === "coordinator" : (state.current === id || (meetingBusy.has(id) && state.current === meetingBusy.get(id).groupId)));
+    chip.setAttribute("aria-label", `${ag.name}, ${ag.about}${b ? ", sedang bekerja" : ""}`);
   }
-  const text = working ? `${working} sedang bekerja · ${AGENTS.length - working} santai` : `${AGENTS.length} orang santai · klik untuk mengobrol`;
-  if ($("of-count").textContent !== text) $("of-count").textContent = text;
 }
 function paintOfficeTools() {
   const dark = effectiveTheme() === "dark";
@@ -1373,17 +1776,8 @@ function paintOfficeTools() {
   $("of-theme").title = dark ? "Ganti ke tema terang" : "Ganti ke tema gelap";
   $("of-theme").setAttribute("aria-label", $("of-theme").title);
   $("pj-theme").innerHTML = $("of-theme").innerHTML; $("pj-theme").title = $("of-theme").title; $("pj-theme").setAttribute("aria-label", $("of-theme").title);
-  const paused = !!office?.paused;
-  $("of-pause").innerHTML = paused ? ICON_PLAY : ICON_PAUSE;
-  $("of-pause").title = paused ? "Lanjutkan gerakan" : "Jeda gerakan";
-  $("of-pause").setAttribute("aria-label", $("of-pause").title);
-  $("of-pause").setAttribute("aria-pressed", String(paused));
   office?.setMode(dark ? "night" : "day");
 }
-$("of-zin").onclick = () => office?.zoom(0.82);
-$("of-zout").onclick = () => office?.zoom(1 / 0.82);
-$("of-reset").onclick = () => office?.resetView();
-$("of-pause").onclick = () => { if (office) { office.setPaused(!office.paused); paintOfficeTools(); } };
 $("of-theme").onclick = () => $("theme").click();
 $("pj-theme").onclick = () => $("theme").click();
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && officeOn && state.current && !docView && !e.defaultPrevented) $("back").click(); });
@@ -1403,12 +1797,12 @@ const downloadText = (name, text, type = "text/markdown") => {
   a.click(); URL.revokeObjectURL(a.href);
 };
 async function openProject(id) {
-  if (projectView) { projectView.show(id); return; }
+  if (projectView) { projectView.show(id); renderList(); return; }
   try {
     const { createProjectView } = await import("./project/view.js");
     projectView = createProjectView({ host: $("pj-body"), deps: {
       el, agentOf, paintAvatar, openDoc, closeDoc, setDocUrl, openChat: (id) => open(id), proxy: PROXY, fetch: (url, init) => fetch(url, authInit(init)), getProvider: () => $("pj-provider").value, setProvider, storage: localStorage,
-      download: downloadText,
+      download: downloadText, sideList: true,
       // the address follows the project screen: a new entry in the history for each project, so the browser's back button works
       route: (id) => {
         const want = id ? `#proyek/${id}` : "#proyek";
@@ -1421,16 +1815,25 @@ async function openProject(id) {
         visit: (from, to) => { teamVisits.set(from, to); setTimeout(() => { if (teamVisits.get(from) === to) teamVisits.delete(from); }, 5000); },
       },
     } });
-    if (projectOn) projectView.show(id);
+    projectView.onChange = () => { renderProjectHeader(); if (projectOn) renderList(); };
+    if (projectOn) { projectView.show(id); renderList(); }
   } catch (e) {
     const retry = el("button", "of-retry", "Coba lagi"); retry.type = "button"; retry.onclick = () => openProject();
     $("pj-body").replaceChildren(Object.assign(el("div", "of-state"), {})); $("pj-body").firstChild.append(el("b", null, "Proyek tidak bisa dimuat"), el("span", null, String(e?.message ?? e)), retry);
   }
 }
-$("pj-new").onclick = () => projectView?.newProject();
+$("pj-new").onclick = () => { closePanels(); projectView?.newProject(); };
+$("pj-del").onclick = () => { closePanels(); projectView?.remove(); };
+$("pj-back-mob").onclick = () => { closePanels(); $("app").classList.remove("in-project"); };
 // </project>
 
-if (!chatById(state.current)) state.current = null;
+for (const c of state.chats) {
+  if (isGroup(c.id) && c.round3State?.agents?.length) {
+    meetingBusy.set("coordinator", { groupId: c.id, status: "menunggu jawaban untuk Putaran 3…" });
+    for (const id of c.round3State.agents) meetingBusy.set(id, { groupId: c.id, status: "menunggu jawaban untuk Putaran 3…" });
+  }
+}
+if (!chatById(state.current) || isGroup(state.current) !== (parseHash().view === "discussion")) state.current = null;
 renderList(); renderChat();
 { const r = parseHash(); if (r.view !== "chat") setView(r.view, r.id); else paintModes(); }
 // a project that was running when the page was refreshed goes on by itself, wherever the visitor is (the office shows the team at work)

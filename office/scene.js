@@ -199,21 +199,25 @@ export function buildWorld(THREE, { colors = {}, signText = ZONES } = {}) {
   world.add(tv);
   world.add(k.place(pendant(k, lamps), 10.5, 0, -6.2));
 
-  // meeting corner
-  k.put(world, k.box(5.4, 0.02, 3.6, "#aab4c0", { cast: false }), -11, 0.011, 6.1);
+  // meeting room: two conference tables, glass walls with a doorway between them, and 16 chairs
+  k.put(world, k.box(12.6, 0.02, 4.2, "#aab4c0", { cast: false }), -7.6, 0.011, 6.5);
   const glassMat = new THREE.MeshLambertMaterial({ color: "#bfe3f2", transparent: true, opacity: 0.22, depthWrite: false });
-  const gl = k.group(-12.25, 0, 3.4);
-  k.put(gl, k.mesh(new THREE.BoxGeometry(5.3, 2.2, 0.05), glassMat, false), 0, 1.1, 0);
-  k.put(gl, k.box(5.3, 0.05, 0.08, "#6b7380", { cast: false }), 0, 2.2, 0); k.put(gl, k.box(5.3, 0.06, 0.08, "#6b7380", { cast: false }), 0, 0.03, 0);
-  for (const x of [-2.65, 0, 2.65]) k.put(gl, k.box(0.06, 2.2, 0.08, "#6b7380", { cast: false }), x, 1.1, 0);
-  world.add(gl);
-  const mt = k.group(-11, 0, 6.2);
-  k.put(mt, k.box(3.4, 0.06, 1.2, "#b98757"), 0, 0.74, 0);
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) k.put(mt, k.box(0.06, 0.72, 0.06, "#6b6f76"), sx * 1.55, 0.36, sz * 0.5);
-  k.put(mt, k.box(0.5, 0.01, 0.35, "#ffffff"), -0.8, 0.775, 0.1); k.put(mt, k.box(0.5, 0.01, 0.35, "#f6e7b4"), 0.5, 0.775, -0.2); k.put(mt, k.cyl(0.04, 0.035, 0.08, "#d9534f", 8), 0.1, 0.8, 0.3);
-  world.add(mt);
+  for (const gx of [-12.25, -4.15]) {
+    const gl = k.group(gx, 0, 3.4);
+    k.put(gl, k.mesh(new THREE.BoxGeometry(5.3, 2.2, 0.05), glassMat, false), 0, 1.1, 0);
+    k.put(gl, k.box(5.3, 0.05, 0.08, "#6b7380", { cast: false }), 0, 2.2, 0); k.put(gl, k.box(5.3, 0.06, 0.08, "#6b7380", { cast: false }), 0, 0.03, 0);
+    for (const x of [-2.65, 0, 2.65]) k.put(gl, k.box(0.06, 2.2, 0.08, "#6b7380", { cast: false }), x, 1.1, 0);
+    world.add(gl);
+  }
+  for (const tx of [-11, -4.2]) {
+    const mt = k.group(tx, 0, 6.5);
+    k.put(mt, k.box(3.4, 0.06, 1.2, "#b98757"), 0, 0.74, 0);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) k.put(mt, k.box(0.06, 0.72, 0.06, "#6b6f76"), sx * 1.55, 0.36, sz * 0.5);
+    k.put(mt, k.box(0.5, 0.01, 0.35, "#ffffff"), -0.8, 0.775, 0.1); k.put(mt, k.box(0.5, 0.01, 0.35, "#f6e7b4"), 0.5, 0.775, -0.2); k.put(mt, k.cyl(0.04, 0.035, 0.08, "#d9534f", 8), 0.1, 0.8, 0.3);
+    world.add(mt);
+  }
   for (const p of POIS.filter((q) => q.kind === "meeting")) { const c = chair(k, "#2f9e8f"); c.position.set(p.seat.x, 0, p.seat.z); c.rotation.y = p.heading; world.add(c); }
-  const wb = k.group(-14.9, 1.5, 6.2, PI / 2);
+  const wb = k.group(-14.9, 1.5, 6.5, PI / 2);
   k.put(wb, k.box(2.4, 1.3, 0.05, "#fbfbf8"), 0, 0, 0); k.put(wb, k.box(2.5, 0.06, 0.08, "#8a8f98"), 0, -0.68, 0.02);
   [["#e57373", -0.6, 0.3, 0.9], ["#64b5f6", 0.1, 0.1, 1.1], ["#81c784", -0.3, -0.2, 0.7], ["#ffb74d", 0.6, -0.3, 0.6]].forEach(([c, x, y, w]) => { const s = k.box(w, 0.05, 0.01, c, { cast: false }); s.position.set(x, y, 0.04); wb.add(s); });
   world.add(wb);

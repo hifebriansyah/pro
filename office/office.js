@@ -11,8 +11,16 @@ const AZ = [0.2, 1.4], EL = [0.28, 1.15], ZOOM = [0.12, 1.2];
 const FOCUS = 0.3;
 const homeZoom = (aspect) => (aspect < 0.7 ? 0.5 : aspect < 1.0 ? 0.8 : 1); // a tall screen cannot show the whole floor and still be readable: start closer, and pan                                  // how close the camera comes to the person you chat with
 const DONE_MS = 3500;
+export const OFFICE_COORDINATOR = {
+  id: "coordinator",
+  name: "Koordinator",
+  color: "#0f766e",
+  about: "Koordinator Diskusi · Menyaring & merangkum",
+  noChat: true,
+};
 
 export function createOffice({ THREE, host, agents, getState, onSelect, onError, mode = "day", reduceMotion = false }) {
+  const allAgents = agents.some((a) => a.id === "coordinator") ? agents : [...agents, OFFICE_COORDINATOR];
   const stage = document.createElement("div");
   stage.className = "of-stage";
   const tagsLayer = document.createElement("div");
@@ -32,14 +40,25 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
   stage.append(canvas, tagsLayer);
   host.append(stage);
 
-  const { scene, sun, screens, setMode, k } = buildWorld(THREE, { colors: Object.fromEntries(agents.map((a) => [a.id, a.color])) });
+  const { scene, sun, screens, setMode, k } = buildWorld(THREE, { colors: Object.fromEntries(allAgents.map((a) => [a.id, a.color])) });
   sun.shadow.mapSize.set(small ? 1024 : 2048, small ? 1024 : 2048);
   const camera = new THREE.PerspectiveCamera(34, 1, 0.5, 220);
-  const sim = createSim({ ids: agents.map((a) => a.id), seed: (Date.now() >>> 4) & 0xffff, wander: !reduceMotion });
+  const sim = createSim({ ids: allAgents.map((a) => a.id), seed: (Date.now() >>> 4) & 0xffff, wander: !reduceMotion });
+  let pinpointed = null;
+  const selectOrPinpoint = (id) => {
+    if (!id) { pinpointed = null; return; }
+    const ag = people.get(id)?.agent;
+    if (ag?.noChat || id === "coordinator") {
+      pinpointed = pinpointed === id ? null : id;
+      return;
+    }
+    pinpointed = null;
+    onSelect?.(id);
+  };
 
   // ---- the people and their name tags
   const people = new Map();
-  for (const a of agents) {
+  for (const a of allAgents) {
     const ch = buildCharacter(k, LOOKS[a.id], a.color);
     scene.add(ch.root);
     ch.hit.userData.id = a.id;
@@ -55,7 +74,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
     const dot = document.createElement("span"); dot.className = "of-dot";
     const bubble = document.createElement("span"); bubble.className = "of-bubble"; bubble.setAttribute("aria-hidden", "true");
     tag.append(av, name, dot, bubble);
-    tag.onclick = () => onSelect?.(a.id);
+    tag.onclick = () => selectOrPinpoint(a.id);
     tag.onpointerenter = () => (hovered = a.id);
     tag.onpointerleave = () => { if (hovered === a.id) hovered = null; };
     tagsLayer.append(tag);
@@ -170,7 +189,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
   const up = (e) => {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = 0;
-    if (drag && !drag.moved && e.type === "pointerup") { const id = pick(e); if (id) onSelect?.(id); }
+    if (drag && !drag.moved && e.type === "pointerup") { const id = pick(e); selectOrPinpoint(id); }
     if (!pointers.size) drag = null;
     canvas.style.cursor = hovered ? "pointer" : "grab";
   };
@@ -203,7 +222,7 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
 
     const inputs = {};
     let busy = 0, sel = null;
-    for (const a of agents) { const st = getState(a.id) ?? {}; inputs[a.id] = { busy: !!st.busy, selected: !!st.selected, visit: st.visit ?? null }; if (st.busy) busy++; if (st.selected) sel = a.id; }
+    for (const a of allAgents) { const st = getState(a.id) ?? {}; const isSel = !!st.selected || pinpointed === a.id; inputs[a.id] = { busy: !!st.busy, selected: isSel, visit: st.visit ?? null, meeting: !!st.meeting }; if (st.busy) busy++; if (isSel) sel = a.id; }
     if (!paused) { clock += dt; sim.update(dt, inputs, { lookHeading: cam.az }); }
     for (const ev of sim.drainEvents()) if (ev.type === "done") people.get(ev.id).flash = now + DONE_MS;
 
@@ -264,8 +283,10 @@ export function createOffice({ THREE, host, agents, getState, onSelect, onError,
     setWander(on) { sim.setWander(on); },
     setPaused(p) { paused = !!p; },
     get paused() { return paused; },
+    pinpoint(id) { selectOrPinpoint(id); },
+    get pinpointed() { return pinpointed; },
     zoom(f) { cam.want.zoom = clamp(cam.want.zoom * f, ZOOM[0], ZOOM[1]); userMoved = true; },
-    resetView() { cam.want.az = HOME.az; cam.want.el = HOME.el; cam.want.zoom = selected ? FOCUS : cam.home; userMoved = false; if (!selected) cam.want.target.set(0, 0.4, 0.4); },
+    resetView() { pinpointed = null; cam.want.az = HOME.az; cam.want.el = HOME.el; cam.want.zoom = selected && selected !== "coordinator" ? FOCUS : cam.home; userMoved = false; if (!selected || selected === "coordinator") cam.want.target.set(0, 0.4, 0.4); },
     debug() { return { az: cam.az, el: cam.el, zoom: cam.zoom, fit: cam.fit, target: cam.target.toArray(), want: cam.want.target.toArray(), wantZoom: cam.want.zoom, selected, userMoved, size: [w, h] }; },
     destroy() { api.stop(); ro.disconnect(); renderer.dispose(); stage.remove(); },
   };
