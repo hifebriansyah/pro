@@ -6,16 +6,21 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const office = (f) => readFileSync(new URL(`../office/${f}`, import.meta.url), "utf8");
 const workflow = readdirSync(new URL("../.github/workflows/", import.meta.url)).map((f) => readFileSync(new URL(`../.github/workflows/${f}`, import.meta.url), "utf8")).join("\n");
 
-test("the page has the way in (Kantor), the office view with its 2-row top bar matching the chat sidebar width, stage and team bar, and the chat to dock", () => {
+test("the page has the way in (Kantor), the office view, stage, and the chat to dock on the left below the nav with a back button", () => {
   assert.equal((html.match(/<nav class="modes[^"]*" data-modes/g) ?? []).length, 3, "the mode switcher in the chat list and in the top bars of the office and the project screen");
   for (const id of ["office", "of-view", "of-roster", "of-count", "of-theme"]) assert.match(html, new RegExp(`id="${id}"`), id);
   for (const removed of ["of-pause", "of-reset", "of-zin", "of-zout"]) assert.doesNotMatch(html, new RegExp(`id="${removed}"`), `${removed} removed`);
-  assert.match(html, /\.office > \.of-top \{[^}]*width: 380px; max-width: 40%/, "top bar matches chat sidebar width on desktop");
-  assert.match(html, /@media \(max-width: 1024px\) \{\s*\.office > \.of-top \{ position: static; width: 100%; max-width: none;/, "full width on tablet and phone");
   assert.match(html, /<main class="chat">/);
-  assert.match(html, /\.app\.office-mode \.side \{ display: none; \}/, "the chat list gives way to the office");
+  assert.doesNotMatch(html, /\.app\.office-mode \.side \{ display: none; \}/, "the sidebar top bar and nav stay visible in office mode");
+  assert.match(html, /\.app\.office-mode \.office \{ display: flex; \}/, "the office view is shown");
   assert.match(html, /\.app\.office-mode:not\(\.in-chat\) \.chat \{ display: none; \}/, "the chat docks only when somebody is chosen");
+  assert.match(html, /\.app\.office-mode \.chat \{ position: absolute; top: 109px; left: 0; bottom: 0; width: 380px; max-width: 40%; border-right: 1px solid var\(--line\); border-left: 0; z-index: 6; transform: none; \}/, "chat docks on the left below the nav");
+  assert.match(html, /\.app\.office-mode \.back \{ display: grid; \}/, "back button is shown in office mode to return to chat list");
+  assert.match(html, /\.app\.office-mode\.in-chat \.side \.search, \.app\.office-mode\.in-chat \.side \.list \{ display: none; \}/, "chat replaces search and list while keeping header and nav");
+  assert.match(html, /officeOn \? "Office"/, "sidebar title is Office in office mode");
   assert.match(html, /\.app\.office-mode\.doc-open \.office \{ display: none; \}/, "a document or mockup takes the room");
+  assert.match(html, /\.of-roster \{ display: none !important; \}/, "agent list on above is removed");
+  assert.match(html, /\.office > \.of-top \{ display: none !important; \}/, "top bar for Kantor Virtual is removed");
 });
 
 test("three.js is loaded only when the office opens, from a pinned version the browser verifies; nothing else is fetched from outside", () => {
